@@ -40,4 +40,5 @@ pub fn debugDumpMemory(memory: []const u8, bytes_per_line: u8) void {
         }
         std.debug.print("{x:0>2}{x:0>2} ", .{ bpair[0], bpair[1] });
     }
+    std.debug.print("\n", .{});
 }

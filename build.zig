@@ -9,8 +9,10 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
+    exe.linkSystemLibrary2("raylib", .{ .use_pkg_config = .force });
     b.installArtifact(exe);
 
     const check_exe = b.addExecutable(.{
@@ -18,6 +20,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
     const check = b.step("check", "Check build errors for LSP");
