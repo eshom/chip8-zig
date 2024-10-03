@@ -9,6 +9,7 @@ const heap = std.heap;
 const debug = std.debug;
 const time = std.time;
 const log = std.log;
+const math = std.math;
 
 const Cycle = timing.Cycle;
 
@@ -20,6 +21,7 @@ pub const std_options = .{
 const RuntimeOptions = struct {
     cpu_delay_s: f64 = 0.0012,
     debug_timings_print_cycle: usize = 100,
+    scale: u16 = 16,
 };
 
 pub fn main() !void {
@@ -37,7 +39,7 @@ pub fn main() !void {
 
 pub fn mainLoop(opt: RuntimeOptions) !void {
     rl.setLogLevel(.log_error);
-    display.initWindow("CHIP-8", .{});
+    display.initWindow("CHIP-8", .{ .scale = opt.scale });
     defer display.closeWindow();
 
     const debug_start_time = time.microTimestamp();
@@ -52,6 +54,13 @@ pub fn mainLoop(opt: RuntimeOptions) !void {
     cycles.prev_time_s = cycles.curr_time_s;
     cycles.delta_time_s = cycles.curr_time_s - cycles.delta_time_s;
 
+    // temp stuff to have on screen
+    display.screen[16][16] = 1;
+    display.screen[32][16] = 1;
+    display.screen[48][16] = 1;
+    display.screen[32][24] = 1;
+    display.screen[32][8] = 1;
+
     while (!display.windowShouldClose()) : ({
         cycles.total +%= 1;
         cycles.delta_time_s = cycles.curr_time_s - cycles.prev_time_s;
@@ -65,11 +74,8 @@ pub fn mainLoop(opt: RuntimeOptions) !void {
         if (cycles.time_since_draw_s > 1 / cycles.target_fps) {
             // Drawing start
             display.beginDrawing();
-            if (cycles.total % 700 >= 0 and cycles.total % 700 < 350) {
-                display.clearBackground(.{ .r = 0, .g = 100, .b = 0, .a = 255 });
-            } else {
-                display.clearBackground(.{ .r = 0, .g = 0, .b = 0, .a = 255 });
-            }
+            display.clearBackground(.{ .r = 0, .g = 0, .b = 0, .a = 255 });
+            display.drawScreen(&display.screen, opt.scale, rl.raylib.RAYWHITE);
             display.endDrawing();
             display.swapScreenBuffer();
             cycles.last_draw_delta_s = cycles.time_since_draw_s;
