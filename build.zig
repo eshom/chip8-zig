@@ -12,7 +12,9 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
 
-    exe.linkSystemLibrary2("raylib", .{ .use_pkg_config = .force });
+    exe.addIncludePath(b.path("vendor/raylib/src"));
+    exe.addLibraryPath(b.path("vendor/raylib/src"));
+    exe.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
     b.installArtifact(exe);
 
     const check_exe = b.addExecutable(.{
