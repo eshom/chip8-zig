@@ -17,7 +17,7 @@ pub const std_options = .{
 
 const RuntimeOptions = struct {
     cpu_delay_s: f64 = 0.001,
-    timings_print_cycle: usize = 1,
+    timings_print_cycle: usize = 700,
 };
 
 pub fn main() !void {
@@ -38,11 +38,11 @@ pub fn mainLoop(opt: RuntimeOptions) !void {
     display.initWindow("CHIP-8", .{});
     defer display.closeWindow();
 
-    const start_time = time.milliTimestamp();
-    var cycles = Cycle{ .start_time_ms = time.milliTimestamp() };
+    const start_time = time.microTimestamp();
+    var cycles = Cycle{ .start_time_us = time.microTimestamp() };
     while (!display.windowShouldClose()) : ({
         cycles.total +%= 1;
-        cycles.start_time_ms = time.milliTimestamp();
+        cycles.start_time_us = time.microTimestamp();
     }) {
         display.beginDrawing();
         display.endDrawing();
@@ -50,12 +50,11 @@ pub fn mainLoop(opt: RuntimeOptions) !void {
         timing.waitTime(opt.cpu_delay_s);
 
         if (cycles.total % opt.timings_print_cycle == 0) {
-            log.debug("run time ms: {d}, total cycle: {d}, last cycle time ms: {d}", .{
-                time.milliTimestamp() - start_time,
+            log.debug("run time us: {d}, total cycle: {d}, last cycle time us: {d}", .{
+                time.microTimestamp() - start_time,
                 cycles.total,
-                time.milliTimestamp() - cycles.start_time_ms,
+                time.microTimestamp() - cycles.start_time_us,
             });
         }
-        // time.sleep(opt.cpu_delay_us * time.ns_per_us);
     }
 }

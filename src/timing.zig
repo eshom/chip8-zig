@@ -2,7 +2,7 @@ const rl = @import("raylib.zig").raylib;
 
 pub const Cycle = struct {
     total: u64 = 0,
-    start_time_ms: i64,
+    start_time_us: i64,
 };
 
 pub fn setTargetFPS(fps: u16) void {
