@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 const debug = std.debug;
 
 pub const RESERVED_INT_START = 0x000;
@@ -6,9 +7,9 @@ pub const RESERVED_INT_END = 0x1FF; // inclusive
 pub const PROGRAM_START = 0x200;
 pub const TOTAL_MEM = 4096;
 
-// const Stack = struct {
-//     s: []u12
-// };
+pub var ram: [TOTAL_MEM]u8 = undefined;
+pub var reg: Reg = .{};
+pub var stack = Stack(100){};
 
 fn Stack(size: comptime_int) type {
     return struct {
@@ -18,7 +19,7 @@ fn Stack(size: comptime_int) type {
         const Self = @This();
 
         pub fn push(self: *Self, elem: u12) !void {
-            if (self.cur >= size) {
+            if (self.cur + 1 >= size) {
                 return error.OutOfBounds;
             }
 
@@ -36,6 +37,19 @@ fn Stack(size: comptime_int) type {
             return out;
         }
     };
+}
+
+test "Stack" {
+    var test_stack = Stack(3){};
+    try testing.expectError(error.OutOfBounds, test_stack.pop());
+    try test_stack.push(1);
+    try test_stack.push(2);
+    try test_stack.push(3);
+    try testing.expectError(error.OutOfBounds, test_stack.push(4));
+    try testing.expectEqualSlices(u12, &test_stack.items, &[3]u12{ 1, 2, 3 });
+    try testing.expectEqual(3, test_stack.pop());
+    try testing.expectEqual(2, test_stack.pop());
+    try testing.expectEqual(1, test_stack.pop());
 }
 
 const Reg = struct {
@@ -58,9 +72,12 @@ const Reg = struct {
     i: u12 = 0, // Address register
 };
 
-pub var ram: [TOTAL_MEM]u8 = undefined;
-pub var reg: Reg = .{};
-pub var stack = Stack(100){};
+test "Reg" {
+    reg.v1 = 5;
+    reg.v2 = 10;
+    reg.i = 0xaaa;
+    try testing.expectEqual(Reg{ .v1 = 5, .v2 = 10, .i = 0xaaa }, reg);
+}
 
 pub fn debugDumpMemory(memory: []const u8, bytes_per_line: u8) void {
     var idx: usize = 0;
