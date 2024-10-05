@@ -20,6 +20,7 @@ pub const beginDrawing = rl.BeginDrawing;
 pub const endDrawing = rl.EndDrawing;
 pub const swapScreenBuffer = rl.SwapScreenBuffer;
 pub const clearBackground = rl.ClearBackground;
+pub const setConfigFlags = rl.SetConfigFlags;
 
 pub fn initWindow(title: [:0]const u8, options: DisplayOptions) void {
     comptime std.debug.assert(@bitSizeOf(c_int) == @bitSizeOf(i32));

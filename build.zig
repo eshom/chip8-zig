@@ -43,8 +43,12 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
+    exe_unit_tests.addIncludePath(b.path("vendor/raylib/src"));
+    exe_unit_tests.addLibraryPath(b.path("vendor/raylib/src"));
+    exe_unit_tests.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
     const test_step = b.step("test", "Run unit tests");
