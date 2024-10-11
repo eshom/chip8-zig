@@ -1,11 +1,11 @@
 const std = @import("std");
 const log = std.log;
-const rl = @import("raylib.zig").raylib;
+const rl = @import("raylib.zig").rl;
 
-const WIDTH = 64;
-const HEIGHT = 32;
+pub const WIDTH = 64;
+pub const HEIGHT = 32;
 
-const Screen = [WIDTH][HEIGHT]u1;
+pub const Screen = [WIDTH][HEIGHT]u1;
 pub var screen: Screen = .{.{0} ** HEIGHT} ** WIDTH;
 
 pub const DisplayOptions = struct {

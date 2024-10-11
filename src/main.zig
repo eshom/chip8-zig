@@ -1,21 +1,22 @@
 const std = @import("std");
+const heap = std.heap;
+const debug = std.debug;
+const time = std.time;
+const log = std.log;
+const math = std.math;
 const memory = @import("memory.zig");
 const font = @import("font.zig");
 const display = @import("display.zig");
 const timing = @import("timing.zig");
 const rl = @import("raylib.zig");
 const input = @import("input.zig");
-const heap = std.heap;
-const debug = std.debug;
-const time = std.time;
-const log = std.log;
-const math = std.math;
+const inst = @import("inst.zig");
 
 const Allocator = std.mem.Allocator;
-
 const Cycle = timing.Cycle;
 const DelayTimer = timing.DelayTimer;
 const SoundTimer = timing.SoundTimer;
+const Config = @import("Config.zig");
 
 pub const std_options = .{
     .log_level = .debug,
@@ -31,7 +32,6 @@ const RuntimeOptions = struct {
 pub fn main() !void {
     rl.setLogLevel(.log_error);
 
-    @memset(&memory.ram, 0);
     var _fba = heap.FixedBufferAllocator.init(memory.ram[memory.PROGRAM_START..]);
     const fba = _fba.allocator();
 
@@ -73,6 +73,8 @@ pub fn mainLoop(ally: Allocator, opt: RuntimeOptions) !void {
     display.screen[48][16] = 1;
     display.screen[32][24] = 1;
     display.screen[32][8] = 1;
+    // temporary timer
+    sound_timer.timer = 240;
 
     while (!display.windowShouldClose()) : ({
         cycles.total +%= 1;
@@ -103,11 +105,14 @@ pub fn mainLoop(ally: Allocator, opt: RuntimeOptions) !void {
             // Drawing start
             display.beginDrawing();
 
-            display.clearBackground(.{ .r = 0, .g = 0, .b = 0, .a = 255 });
-            display.drawScreen(&display.screen, opt.scale, rl.raylib.RAYWHITE);
+            display.clearBackground(Config.bg_color);
+            display.drawScreen(&display.screen, opt.scale, rl.rl.RAYWHITE);
 
+            // temporary check
             if (sound_timer.timer == 0) {
                 sound_timer.timer = 240;
+                // clearScreen when timer goes out
+                (inst.Inst{ .nb3 = 0xe }).execute();
             }
 
             display.endDrawing();
@@ -144,4 +149,6 @@ test {
     _ = @import("timing.zig");
     _ = @import("raylib.zig");
     _ = @import("input.zig");
+    _ = @import("inst.zig");
+    _ = @import("Config.zig");
 }

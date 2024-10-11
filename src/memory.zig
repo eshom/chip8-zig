@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const testing = std.testing;
 const debug = std.debug;
 
@@ -7,18 +8,22 @@ pub const RESERVED_INT_END = 0x1FF; // inclusive
 pub const PROGRAM_START = 0x200;
 pub const TOTAL_MEM = 4096;
 
-pub var ram: [TOTAL_MEM]u8 = undefined;
+pub const Memory = [TOTAL_MEM]u8;
+pub const Inst = u16;
+pub const Addr = u12;
+
+pub var ram: Memory = .{0} ** TOTAL_MEM;
 pub var reg: Reg = .{};
-pub var stack = Stack(100){};
+pub var stack: Stack(100) = .{};
 
 fn Stack(size: comptime_int) type {
     return struct {
-        items: [size]u12 = undefined,
+        items: [size]Addr = undefined,
         cur: isize = -1,
 
         const Self = @This();
 
-        pub fn push(self: *Self, elem: u12) !void {
+        pub fn push(self: *Self, elem: Addr) !void {
             if (self.cur + 1 >= size) {
                 return error.OutOfBounds;
             }
@@ -27,7 +32,7 @@ fn Stack(size: comptime_int) type {
             self.items[@intCast(self.cur)] = elem;
         }
 
-        pub fn pop(self: *Self) !u12 {
+        pub fn pop(self: *Self) !Addr {
             if (self.cur < 0) {
                 return error.OutOfBounds;
             }
@@ -46,7 +51,7 @@ test "Stack" {
     try test_stack.push(2);
     try test_stack.push(3);
     try testing.expectError(error.OutOfBounds, test_stack.push(4));
-    try testing.expectEqualSlices(u12, &test_stack.items, &[3]u12{ 1, 2, 3 });
+    try testing.expectEqualSlices(Addr, &test_stack.items, &[3]Addr{ 0x001, 0x002, 0x003 });
     try testing.expectEqual(3, test_stack.pop());
     try testing.expectEqual(2, test_stack.pop());
     try testing.expectEqual(1, test_stack.pop());
@@ -69,7 +74,7 @@ const Reg = struct {
     vd: u8 = 0,
     ve: u8 = 0,
     vf: u8 = 0, // Flag register
-    i: u12 = 0, // Address register
+    i: Addr = 0x000, // Address register
 };
 
 test "Reg" {

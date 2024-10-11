@@ -1,4 +1,4 @@
-pub const raylib = @cImport({
+pub const rl = @cImport({
     @cInclude("raylib.h");
 });
 
@@ -14,5 +14,5 @@ pub const TraceLogLevel = enum(c_int) {
 };
 
 pub fn setLogLevel(log_level: TraceLogLevel) void {
-    raylib.SetTraceLogLevel(@intFromEnum(log_level));
+    rl.SetTraceLogLevel(@intFromEnum(log_level));
 }

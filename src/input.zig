@@ -1,5 +1,5 @@
 const std = @import("std");
-const rl = @import("raylib.zig").raylib;
+const rl = @import("raylib.zig").rl;
 
 pub const pollInputEvents = rl.PollInputEvents;
 pub const getKeyPressed = rl.GetKeyPressed;

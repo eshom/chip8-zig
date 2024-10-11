@@ -3,7 +3,7 @@ const testing = std.testing;
 const mem = std.mem;
 
 const raylib = @import("raylib.zig");
-const rl = raylib.raylib;
+const rl = raylib.rl;
 const display = @import("display.zig");
 
 pub const Cycle = struct {
