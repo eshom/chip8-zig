@@ -33,10 +33,10 @@ const RuntimeOptions = struct {
     scale: u16 = 16,
 };
 
-const Devices = struct {
+pub const Devices = struct {
     pc: ProgramCounter = .{},
     ram: Memory = .{0} ** memory.TOTAL_MEM,
-    stack: memory.Stack(100) = .{},
+    stack: memory.Stack(Config.stack_size) = .{},
     reg: Reg = .{},
     screen: Screen = .{.{0} ** display.HEIGHT} ** display.WIDTH,
 };
@@ -122,7 +122,7 @@ pub fn mainLoop(ally: Allocator, dev: *Devices, opt: RuntimeOptions) !void {
             if (sound_timer.timer == 0) {
                 sound_timer.timer = 240;
                 // clearScreen when timer goes out
-                (inst.Inst{ .nb3 = 0xe }).execute(&dev.pc, &dev.screen);
+                (inst.Inst{ .nb3 = 0xe }).execute(dev);
             }
 
             display.endDrawing();

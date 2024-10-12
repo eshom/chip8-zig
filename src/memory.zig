@@ -70,7 +70,7 @@ pub const Reg = struct {
     vd: u8 = 0,
     ve: u8 = 0,
     vf: u8 = 0, // Flag register
-    i: Addr = 0x000, // Address register
+    i: Addr = @bitCast(@as(u12, 0x000)), // Address register
 };
 
 test "Reg" {
@@ -90,7 +90,7 @@ pub fn debugDumpMemory(memory: []const u8, bytes_per_line: u8) void {
             debug.print("\n", .{});
             debug.print("0x{x:0>3}: ", .{idx});
         }
-        std.debug.print("{x:0>2}{x:0>2} ", .{ bpair[0], bpair[1] });
+        debug.print("{x:0>2}{x:0>2} ", .{ bpair[0], bpair[1] });
     }
-    std.debug.print("\n", .{});
+    debug.print("\n", .{});
 }
