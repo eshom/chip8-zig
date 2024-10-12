@@ -54,31 +54,18 @@ test "Stack" {
 }
 
 pub const Reg = struct {
-    // General purpose registers
-    v1: u8 = 0,
-    v2: u8 = 0,
-    v3: u8 = 0,
-    v4: u8 = 0,
-    v5: u8 = 0,
-    v6: u8 = 0,
-    v7: u8 = 0,
-    v8: u8 = 0,
-    v9: u8 = 0,
-    va: u8 = 0,
-    vb: u8 = 0,
-    vc: u8 = 0,
-    vd: u8 = 0,
-    ve: u8 = 0,
-    vf: u8 = 0, // Flag register
+    // Index 0 unused on purpose
+    v: [17]u8 = .{0} ** 17, // General purpose registers + flag register
     i: Addr = @bitCast(@as(u12, 0x000)), // Address register
 };
 
 test "Reg" {
     var reg: Reg = .{};
-    reg.v1 = 5;
-    reg.v2 = 10;
+    reg.v[1] = 5;
+    reg.v[2] = 10;
     reg.i = 0xaaa;
-    try testing.expectEqual(Reg{ .v1 = 5, .v2 = 10, .i = 0xaaa }, reg);
+
+    try testing.expectEqual(Reg{ .v = .{ 0, 5, 10 } ++ .{0} ** 14, .i = 0xaaa }, reg);
 }
 
 pub fn debugDumpMemory(memory: []const u8, bytes_per_line: u8) void {

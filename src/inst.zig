@@ -10,9 +10,8 @@ const Addr = memory.Addr;
 const Memory = memory.Memory;
 const Screen = display.Screen;
 const Devices = @import("main.zig").Devices;
+const Reg = memory.Reg;
 const Config = @import("Config.zig");
-
-// const HOST_ENDIAN = @import("builtin").cpu.arch.endian();
 
 //TODO: Better handling of big endian platforms
 pub const Inst = packed struct(u16) {
@@ -25,17 +24,20 @@ pub const Inst = packed struct(u16) {
         switch (self.nb1) {
             0x0 => switch (self.nb3) {
                 0xe => {
-                    if (self.nb4 == 0) {
+                    if (self.nb4 == 0x0 and self.nb2 == 0x0) {
                         clearScreen(&dev.screen);
+                    } else if (self.nb4 == 0xe and self.nb2 == 0x0) {
+                        ret(dev);
                     } else {
-                        noop();
+                        noop(); // unsupported instruction `0NNN`
                     }
                 },
                 0x0...0xd, 0xf => noop(),
             },
             0x1 => jump(@truncate(@as(u16, @bitCast(self))), &dev.pc),
             0x2 => call(@truncate(@as(u16, @bitCast(self))), dev),
-            0x3...0xf => noop(),
+            0x6 => set(self.nb2, @truncate(@as(u16, @bitCast(self))), &dev.reg),
+            0x3...0x5, 0x7...0xf => noop(),
         }
     }
 };
@@ -119,18 +121,35 @@ test "execute call instruction" {
     try testing.expectEqual(0x202, dev.stack.pop() catch @panic("trying to pop empty stack\n"));
 }
 
-fn reverseNibbles(inst: Inst) Inst {
-    var out: Inst = .{};
-    out.nb1 = inst.nb4;
-    out.nb2 = inst.nb3;
-    out.nb3 = inst.nb2;
-    out.nb4 = inst.nb1;
-    return out;
+fn ret(dev: *Devices) void {
+    dev.pc.addr = dev.stack.pop() catch @panic("trying to pop out of empty stack");
 }
 
-test "reverseNibbles" {
-    const num: u16 = 0x1234;
-    const inst: Inst = @bitCast(num);
-    const reversed: u16 = @bitCast(reverseNibbles(inst));
-    try testing.expectEqual(0x4321, reversed);
+test "execute ret instruction" {
+    var dev: Devices = .{};
+    dev.ram[memory.PROGRAM_START] = 0x22;
+    dev.ram[memory.PROGRAM_START + 1] = 0x05;
+    dev.ram[0x205] = 0x00;
+    dev.ram[0x206] = 0xee;
+    dev.ram[0x202] = 0xab;
+    dev.ram[0x203] = 0xcd;
+
+    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    dev.pc.fetch(&dev.ram).execute(&dev);
+    dev.pc.fetch(&dev.ram).execute(&dev);
+    const inst = dev.pc.fetch(&dev.ram);
+    try testing.expectEqual(0xabcd, @as(u16, @bitCast(inst)));
+}
+
+fn set(dest_reg: u4, value: u8, reg: *Reg) void {
+    reg.v[dest_reg] = value;
+}
+
+test "execute set instruction" {
+    var dev: Devices = .{};
+    dev.ram[memory.PROGRAM_START] = 0x64;
+    dev.ram[memory.PROGRAM_START + 1] = 0x33;
+    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    dev.pc.fetch(&dev.ram).execute(&dev);
+    try testing.expectEqual(0x33, dev.reg.v[4]);
 }
