@@ -37,7 +37,8 @@ pub const Inst = packed struct(u16) {
             0x1 => jump(@truncate(@as(u16, @bitCast(self))), &dev.pc),
             0x2 => call(@truncate(@as(u16, @bitCast(self))), dev),
             0x6 => set(self.nb2, @truncate(@as(u16, @bitCast(self))), &dev.reg),
-            0x3...0x5, 0x7...0xf => noop(),
+            0x7 => add(self.nb2, @truncate(@as(u16, @bitCast(self))), &dev.reg),
+            0x3...0x5, 0x8...0xf => noop(),
         }
     }
 };
@@ -152,4 +153,24 @@ test "execute set instruction" {
     debug.assert(dev.pc.addr == memory.PROGRAM_START);
     dev.pc.fetch(&dev.ram).execute(&dev);
     try testing.expectEqual(0x33, dev.reg.v[4]);
+}
+
+fn add(dest_reg: u4, value: u8, reg: *Reg) void {
+    reg.v[dest_reg] +|= value;
+}
+
+test "execute add instruction" {
+    var dev: Devices = .{};
+    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    dev.ram[dev.pc.addr] = 0x65;
+    dev.ram[dev.pc.addr + 1] = 0x33;
+    dev.pc.fetch(&dev.ram).execute(&dev);
+    dev.ram[dev.pc.addr] = 0x75;
+    dev.ram[dev.pc.addr + 1] = 0x33;
+    dev.pc.fetch(&dev.ram).execute(&dev);
+    try testing.expectEqual(0x66, dev.reg.v[5]);
+    dev.ram[dev.pc.addr] = 0x75;
+    dev.ram[dev.pc.addr + 1] = 0xff;
+    dev.pc.fetch(&dev.ram).execute(&dev);
+    try testing.expectEqual(0xff, dev.reg.v[5]);
 }
