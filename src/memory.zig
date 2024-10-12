@@ -12,11 +12,7 @@ pub const Memory = [TOTAL_MEM]u8;
 pub const Inst = u16;
 pub const Addr = u12;
 
-pub var ram: Memory = .{0} ** TOTAL_MEM;
-pub var reg: Reg = .{};
-pub var stack: Stack(100) = .{};
-
-fn Stack(size: comptime_int) type {
+pub fn Stack(size: comptime_int) type {
     return struct {
         items: [size]Addr = undefined,
         cur: isize = -1,
@@ -57,7 +53,7 @@ test "Stack" {
     try testing.expectEqual(1, test_stack.pop());
 }
 
-const Reg = struct {
+pub const Reg = struct {
     // General purpose registers
     v1: u8 = 0,
     v2: u8 = 0,
@@ -78,6 +74,7 @@ const Reg = struct {
 };
 
 test "Reg" {
+    var reg: Reg = .{};
     reg.v1 = 5;
     reg.v2 = 10;
     reg.i = 0xaaa;

@@ -44,6 +44,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .link_libc = true,
+        .filter = b.option([]const u8, "test-filter", "String to filter tests by"),
     });
 
     exe_unit_tests.addIncludePath(b.path("vendor/raylib/src"));

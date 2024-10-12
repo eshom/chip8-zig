@@ -16,6 +16,10 @@ const Allocator = std.mem.Allocator;
 const Cycle = timing.Cycle;
 const DelayTimer = timing.DelayTimer;
 const SoundTimer = timing.SoundTimer;
+const ProgramCounter = inst.ProgramCounter;
+const Memory = memory.Memory;
+const Reg = memory.Reg;
+const Screen = display.Screen;
 const Config = @import("Config.zig");
 
 pub const std_options = .{
@@ -29,21 +33,27 @@ const RuntimeOptions = struct {
     scale: u16 = 16,
 };
 
+const Devices = struct {
+    pc: ProgramCounter = .{},
+    ram: Memory = .{0} ** memory.TOTAL_MEM,
+    stack: memory.Stack(100) = .{},
+    reg: Reg = .{},
+    screen: Screen = .{.{0} ** display.HEIGHT} ** display.WIDTH,
+};
+
 pub fn main() !void {
     rl.setLogLevel(.log_error);
+    var dev: Devices = .{};
 
-    var _fba = heap.FixedBufferAllocator.init(memory.ram[memory.PROGRAM_START..]);
+    var _fba = heap.FixedBufferAllocator.init(dev.ram[memory.PROGRAM_START..]);
     const fba = _fba.allocator();
 
-    font.setFont(&memory.ram, &font.font_chars);
+    font.setFont(&dev.ram, &font.font_chars);
 
-    // Debug memory dump
-    // memory.debugDumpMemory(&memory.ram, 16);
-
-    try mainLoop(fba, .{});
+    try mainLoop(fba, &dev, .{});
 }
 
-pub fn mainLoop(ally: Allocator, opt: RuntimeOptions) !void {
+pub fn mainLoop(ally: Allocator, dev: *Devices, opt: RuntimeOptions) !void {
     _ = ally; // autofix
 
     var delay_timer = DelayTimer{};
@@ -68,11 +78,11 @@ pub fn mainLoop(ally: Allocator, opt: RuntimeOptions) !void {
     cycles.delta_time_s = cycles.curr_time_s - cycles.prev_time_s;
 
     // temp stuff to have on screen
-    display.screen[16][16] = 1;
-    display.screen[32][16] = 1;
-    display.screen[48][16] = 1;
-    display.screen[32][24] = 1;
-    display.screen[32][8] = 1;
+    dev.screen[16][16] = 1;
+    dev.screen[32][16] = 1;
+    dev.screen[48][16] = 1;
+    dev.screen[32][24] = 1;
+    dev.screen[32][8] = 1;
     // temporary timer
     sound_timer.timer = 240;
 
@@ -106,13 +116,13 @@ pub fn mainLoop(ally: Allocator, opt: RuntimeOptions) !void {
             display.beginDrawing();
 
             display.clearBackground(Config.bg_color);
-            display.drawScreen(&display.screen, opt.scale, rl.rl.RAYWHITE);
+            display.drawScreen(&dev.screen, opt.scale, rl.rl.RAYWHITE);
 
             // temporary check
             if (sound_timer.timer == 0) {
                 sound_timer.timer = 240;
                 // clearScreen when timer goes out
-                (inst.Inst{ .nb3 = 0xe }).execute();
+                (inst.Inst{ .nb3 = 0xe }).execute(&dev.pc, &dev.screen);
             }
 
             display.endDrawing();

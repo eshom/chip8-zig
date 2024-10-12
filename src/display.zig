@@ -6,7 +6,6 @@ pub const WIDTH = 64;
 pub const HEIGHT = 32;
 
 pub const Screen = [WIDTH][HEIGHT]u1;
-pub var screen: Screen = .{.{0} ** HEIGHT} ** WIDTH;
 
 pub const DisplayOptions = struct {
     width: u16 = WIDTH,
