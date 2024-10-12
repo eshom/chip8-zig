@@ -54,8 +54,7 @@ test "Stack" {
 }
 
 pub const Reg = struct {
-    // Index 0 unused on purpose
-    v: [17]u8 = .{0} ** 17, // General purpose registers + flag register
+    v: [16]u8 = .{0} ** 16, // General purpose registers + flag register
     i: Addr = @bitCast(@as(u12, 0x000)), // Address register
 };
 
@@ -65,7 +64,7 @@ test "Reg" {
     reg.v[2] = 10;
     reg.i = 0xaaa;
 
-    try testing.expectEqual(Reg{ .v = .{ 0, 5, 10 } ++ .{0} ** 14, .i = 0xaaa }, reg);
+    try testing.expectEqualDeep(Reg{ .v = [_]u8{ 0, 5, 10 } ++ .{0} ** 13, .i = 0xaaa }, reg);
 }
 
 pub fn debugDumpMemory(memory: []const u8, bytes_per_line: u8) void {

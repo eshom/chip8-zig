@@ -39,7 +39,8 @@ pub const Inst = packed struct(u16) {
             0x6 => set(self.nb2, @truncate(@as(u16, @bitCast(self))), &dev.reg),
             0x7 => add(self.nb2, @truncate(@as(u16, @bitCast(self))), &dev.reg),
             0xa => setI(@truncate(@as(u16, @bitCast(self))), &dev.reg),
-            0x3...0x5, 0x8...0x9, 0xb...0xf => noop(),
+            0xd => displayI(self.nb2, self.nb3, self.nb4, dev),
+            0x3...0x5, 0x8...0x9, 0xb, 0xc, 0xe...0xf => noop(),
         }
     }
 };
@@ -193,9 +194,71 @@ test "execute setI instruction" {
     dev.ram[dev.pc.addr + 1] = 0x50;
     dev.pc.fetch(&dev.ram).execute(&dev);
     try testing.expectEqual(0x250, dev.reg.i);
-    dev.ram[dev.pc.addr] = 0xa2;
 
-    dev.ram[dev.pc.addr + 1] = 0xfff;
+    dev.ram[dev.pc.addr] = 0xaf;
+    dev.ram[dev.pc.addr + 1] = 0xff;
     dev.pc.fetch(&dev.ram).execute(&dev);
     try testing.expectEqual(0xfff, dev.reg.i);
+}
+
+fn displayI(reg_x: u4, reg_y: u4, rows: u4, dev: *Devices) void {
+    var pos_x: usize = dev.reg.v[reg_x] % display.WIDTH;
+    var pos_y: usize = dev.reg.v[reg_y] % display.HEIGHT;
+    dev.reg.v[0xf] = 0;
+
+    for (0..rows) |row| {
+        if (pos_y >= display.HEIGHT) {
+            break;
+        }
+        // TODO: Overflow check maybe
+        const sprite_byte = dev.ram[dev.reg.i + row];
+        var idx: i4 = 7;
+        while (idx >= 0) : (idx -= 1) {
+            const pixel: u1 = @truncate(sprite_byte >> @intCast(idx));
+            if (pos_x >= display.WIDTH) {
+                break;
+            }
+            if (pixel == 1 and dev.screen[pos_x][pos_y] == 1) {
+                dev.screen[pos_x][pos_y] = 0;
+                dev.reg.v[0xf] = 1;
+            } else if (pixel == 1 and dev.screen[pos_x][pos_y] == 0) {
+                dev.screen[pos_x][pos_y] = 1;
+            }
+            pos_x += 1;
+        }
+        pos_y += 1;
+    }
+}
+
+test "execute displayI instruction" {
+    var dev: Devices = .{};
+    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    dev.ram[dev.pc.addr] = 0xd0;
+    dev.ram[dev.pc.addr + 1] = 0x11;
+    dev.reg.v[0] = 1;
+    dev.reg.v[1] = 16;
+    dev.reg.i = 0x250;
+    dev.ram[dev.reg.i] = 0b1111_1111;
+    dev.pc.fetch(&dev.ram).execute(&dev);
+    try testing.expectEqual(0, dev.reg.v[0xf]);
+
+    var actual: [8]u1 = undefined;
+
+    for (1..9, 0..) |screen_i, idx| {
+        actual[idx] = dev.screen[screen_i][16];
+    }
+
+    try testing.expectEqualSlices(u1, &[_]u1{1} ** 8, &actual);
+
+    dev.ram[dev.pc.addr] = 0xd0;
+    dev.ram[dev.pc.addr + 1] = 0x11;
+    dev.ram[dev.reg.i] = 0b1000_1000;
+    dev.pc.fetch(&dev.ram).execute(&dev);
+    try testing.expectEqual(1, dev.reg.v[0xf]);
+
+    for (1..9, 0..) |screen_i, idx| {
+        actual[idx] = dev.screen[screen_i][16];
+    }
+
+    try testing.expectEqualSlices(u1, &[_]u1{ 0, 1, 1, 1, 0, 1, 1, 1 }, &actual);
 }
