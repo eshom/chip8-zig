@@ -26,19 +26,14 @@ pub const std_options = .{
     .log_level = .debug,
 };
 
-// Goal is 700 instructions per second
-const RuntimeOptions = struct {
-    cpu_delay_s: f64 = 0.0012,
-    debug_timings_print_cycle: usize = 100,
-    scale: u16 = 16,
-};
-
 pub const Devices = struct {
     pc: ProgramCounter = .{},
     ram: Memory = .{0} ** memory.TOTAL_MEM,
     stack: memory.Stack(Config.stack_size) = .{},
     reg: Reg = .{},
     screen: Screen = .{.{0} ** display.HEIGHT} ** display.WIDTH,
+    delay_timer: DelayTimer = .{},
+    sound_timer: SoundTimer = .{},
 };
 
 pub fn main() !void {
@@ -50,19 +45,16 @@ pub fn main() !void {
 
     font.setFont(&dev.ram, &font.font_chars);
 
-    try mainLoop(fba, &dev, .{});
+    try mainLoop(fba, &dev);
 }
 
-pub fn mainLoop(ally: Allocator, dev: *Devices, opt: RuntimeOptions) !void {
+pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
     _ = ally; // autofix
 
-    var delay_timer = DelayTimer{};
-    var sound_timer = SoundTimer{};
-
     timing.initAudioDevice();
-    const beep = timing.loadSound(sound_timer.sound);
+    const beep = timing.loadSound(dev.sound_timer.sound);
 
-    display.initWindow("CHIP-8", .{ .scale = opt.scale });
+    display.initWindow("CHIP-8", .{ .scale = Config.scale });
     defer display.closeWindow();
 
     const debug_start_time = time.microTimestamp();
@@ -84,7 +76,7 @@ pub fn mainLoop(ally: Allocator, dev: *Devices, opt: RuntimeOptions) !void {
     dev.screen[32][24] = 1;
     dev.screen[32][8] = 1;
     // temporary timer
-    sound_timer.timer = 240;
+    dev.sound_timer.timer = 240;
 
     while (!display.windowShouldClose()) : ({
         cycles.total +%= 1;
@@ -92,23 +84,23 @@ pub fn mainLoop(ally: Allocator, dev: *Devices, opt: RuntimeOptions) !void {
         cycles.prev_time_s = cycles.curr_time_s;
         cycles.curr_time_s = timing.getTime();
         cycles.time_since_draw_s += cycles.delta_time_s;
-        if (delay_timer.timer != 0) delay_timer.last_tick_s += cycles.delta_time_s;
-        if (sound_timer.timer != 0) sound_timer.last_tick_s += cycles.delta_time_s;
+        if (dev.delay_timer.timer != 0) dev.delay_timer.last_tick_s += cycles.delta_time_s;
+        if (dev.sound_timer.timer != 0) dev.sound_timer.last_tick_s += cycles.delta_time_s;
         debug_curr_time = time.microTimestamp();
     }) {
         input.pollInputEvents();
 
-        if (delay_timer.timer != 0 and delay_timer.last_tick_s > delay_timer.rate) {
-            delay_timer.timer -= 1;
-            delay_timer.last_tick_s = 0;
+        if (dev.delay_timer.timer != 0 and dev.delay_timer.last_tick_s > dev.delay_timer.rate) {
+            dev.delay_timer.timer -= 1;
+            dev.delay_timer.last_tick_s = 0;
         }
 
-        if (sound_timer.timer != 0 and sound_timer.last_tick_s > sound_timer.rate) {
-            sound_timer.timer -= 1;
-            if (sound_timer.timer == 0) {
+        if (dev.sound_timer.timer != 0 and dev.sound_timer.last_tick_s > dev.sound_timer.rate) {
+            dev.sound_timer.timer -= 1;
+            if (dev.sound_timer.timer == 0) {
                 timing.playSound(beep);
             }
-            sound_timer.last_tick_s = 0;
+            dev.sound_timer.last_tick_s = 0;
         }
 
         if (cycles.time_since_draw_s > 1 / cycles.target_fps) {
@@ -116,11 +108,11 @@ pub fn mainLoop(ally: Allocator, dev: *Devices, opt: RuntimeOptions) !void {
             display.beginDrawing();
 
             display.clearBackground(Config.bg_color);
-            display.drawScreen(&dev.screen, opt.scale, rl.rl.RAYWHITE);
+            display.drawScreen(&dev.screen, Config.scale, rl.rl.RAYWHITE);
 
             // temporary check
-            if (sound_timer.timer == 0) {
-                sound_timer.timer = 240;
+            if (dev.sound_timer.timer == 0) {
+                dev.sound_timer.timer = 240;
                 // clearScreen when timer goes out
                 (inst.Inst{ .nb3 = 0xe }).execute(dev);
             }
@@ -132,7 +124,7 @@ pub fn mainLoop(ally: Allocator, dev: *Devices, opt: RuntimeOptions) !void {
             // Drawing end
         }
 
-        timing.waitTime(opt.cpu_delay_s);
+        timing.waitTime(Config.cpu_delay_s);
 
         // Debug stuff
         // if (cycles.total % opt.debug_timings_print_cycle == 0) {
