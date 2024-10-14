@@ -48,9 +48,12 @@ pub const Inst = packed struct(u16) {
 pub const ProgramCounter = struct {
     addr: Addr = c8.memory.PROGRAM_START,
 
-    pub fn fetch(self: *ProgramCounter, memo: *const Memory) Inst {
+    pub fn fetch(self: *ProgramCounter, memo: *const Memory) !Inst {
+        if (self.addr > memo.len - 2) {
+            return c8.ProgramError.UnexpectedProgramEnd;
+        }
         const inst = mem.readInt(u16, &[2]u8{ memo[self.addr], memo[self.addr + 1] }, .big);
-        self.addr += 0x002;
+        self.addr +|= 0x002;
         return @bitCast(inst);
     }
 };
