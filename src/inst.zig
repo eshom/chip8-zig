@@ -3,15 +3,15 @@ const mem = std.mem;
 const debug = std.debug;
 const testing = std.testing;
 const fmt = std.fmt;
-const memory = @import("memory.zig");
-const display = @import("display.zig");
 
-const Addr = memory.Addr;
-const Memory = memory.Memory;
-const Screen = display.Screen;
-const Devices = @import("main.zig").Devices;
-const Reg = memory.Reg;
-const Config = @import("Config.zig");
+const c8 = @import("chip8.zig");
+
+const Addr = c8.memory.Addr;
+const Memory = c8.memory.Memory;
+const Screen = c8.display.Screen;
+const Devices = c8.Devices;
+const Reg = c8.memory.Reg;
+const Config = c8.Config;
 
 //TODO: Better handling of big endian platforms
 pub const Inst = packed struct(u16) {
@@ -46,7 +46,7 @@ pub const Inst = packed struct(u16) {
 };
 
 pub const ProgramCounter = struct {
-    addr: Addr = memory.PROGRAM_START,
+    addr: Addr = c8.memory.PROGRAM_START,
 
     pub fn fetch(self: *ProgramCounter, memo: *const Memory) Inst {
         const inst = mem.readInt(u16, &[2]u8{ memo[self.addr], memo[self.addr + 1] }, .big);
@@ -58,12 +58,12 @@ pub const ProgramCounter = struct {
 test "ProgramCounter.fetch" {
     var dev: Devices = .{};
 
-    dev.ram[memory.PROGRAM_START] = 0xf0;
-    dev.ram[memory.PROGRAM_START + 1] = 0x0a;
-    dev.ram[memory.PROGRAM_START + 2] = 0x5e;
-    dev.ram[memory.PROGRAM_START + 3] = 0x01;
+    dev.ram[c8.memory.PROGRAM_START] = 0xf0;
+    dev.ram[c8.memory.PROGRAM_START + 1] = 0x0a;
+    dev.ram[c8.memory.PROGRAM_START + 2] = 0x5e;
+    dev.ram[c8.memory.PROGRAM_START + 3] = 0x01;
 
-    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     const inst1 = dev.pc.fetch(&dev.ram);
     const inst2 = dev.pc.fetch(&dev.ram);
 
@@ -75,8 +75,8 @@ fn noop() void {
     return;
 }
 
-fn clearScreen(screen: *display.Screen) void {
-    @memset(screen, .{0} ** display.HEIGHT);
+fn clearScreen(screen: *c8.display.Screen) void {
+    @memset(screen, .{0} ** c8.display.HEIGHT);
 }
 
 fn jump(addr: Addr, pc: *ProgramCounter) void {
@@ -86,14 +86,14 @@ fn jump(addr: Addr, pc: *ProgramCounter) void {
 test "execute jump instruction" {
     var dev: Devices = .{};
 
-    dev.ram[memory.PROGRAM_START] = 0x12;
-    dev.ram[memory.PROGRAM_START + 1] = 0x03;
+    dev.ram[c8.memory.PROGRAM_START] = 0x12;
+    dev.ram[c8.memory.PROGRAM_START + 1] = 0x03;
     dev.ram[0x203] = 0x12;
     dev.ram[0x204] = 0x06;
     dev.ram[0x206] = 0xab;
     dev.ram[0x207] = 0xcd;
 
-    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.pc.fetch(&dev.ram).execute(&dev);
     dev.pc.fetch(&dev.ram).execute(&dev);
     const inst = dev.pc.fetch(&dev.ram);
@@ -108,14 +108,14 @@ fn call(addr: Addr, dev: *Devices) void {
 test "execute call instruction" {
     var dev: Devices = .{};
 
-    dev.ram[memory.PROGRAM_START] = 0x22;
-    dev.ram[memory.PROGRAM_START + 1] = 0x05;
+    dev.ram[c8.memory.PROGRAM_START] = 0x22;
+    dev.ram[c8.memory.PROGRAM_START + 1] = 0x05;
     dev.ram[0x205] = 0x22;
     dev.ram[0x206] = 0x08;
     dev.ram[0x208] = 0xab;
     dev.ram[0x209] = 0xcd;
 
-    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.pc.fetch(&dev.ram).execute(&dev);
     dev.pc.fetch(&dev.ram).execute(&dev);
     const inst = dev.pc.fetch(&dev.ram);
@@ -130,14 +130,14 @@ fn ret(dev: *Devices) void {
 
 test "execute ret instruction" {
     var dev: Devices = .{};
-    dev.ram[memory.PROGRAM_START] = 0x22;
-    dev.ram[memory.PROGRAM_START + 1] = 0x05;
+    dev.ram[c8.memory.PROGRAM_START] = 0x22;
+    dev.ram[c8.memory.PROGRAM_START + 1] = 0x05;
     dev.ram[0x205] = 0x00;
     dev.ram[0x206] = 0xee;
     dev.ram[0x202] = 0xab;
     dev.ram[0x203] = 0xcd;
 
-    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.pc.fetch(&dev.ram).execute(&dev);
     dev.pc.fetch(&dev.ram).execute(&dev);
     const inst = dev.pc.fetch(&dev.ram);
@@ -150,9 +150,9 @@ fn set(dest_reg: u4, value: u8, reg: *Reg) void {
 
 test "execute set instruction" {
     var dev: Devices = .{};
-    dev.ram[memory.PROGRAM_START] = 0x64;
-    dev.ram[memory.PROGRAM_START + 1] = 0x33;
-    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    dev.ram[c8.memory.PROGRAM_START] = 0x64;
+    dev.ram[c8.memory.PROGRAM_START + 1] = 0x33;
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.pc.fetch(&dev.ram).execute(&dev);
     try testing.expectEqual(0x33, dev.reg.v[4]);
 }
@@ -163,7 +163,7 @@ fn add(dest_reg: u4, value: u8, reg: *Reg) void {
 
 test "execute add instruction" {
     var dev: Devices = .{};
-    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr] = 0x65;
     dev.ram[dev.pc.addr + 1] = 0x33;
     dev.pc.fetch(&dev.ram).execute(&dev);
@@ -184,7 +184,7 @@ fn setI(value: Addr, reg: *Reg) void {
 
 test "execute setI instruction" {
     var dev: Devices = .{};
-    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr] = 0xa2;
     dev.ram[dev.pc.addr + 1] = 0x00;
     dev.pc.fetch(&dev.ram).execute(&dev);
@@ -202,12 +202,12 @@ test "execute setI instruction" {
 }
 
 fn displayI(reg_x: u4, reg_y: u4, rows: u4, dev: *Devices) void {
-    var pos_x: usize = dev.reg.v[reg_x] % display.WIDTH;
-    var pos_y: usize = dev.reg.v[reg_y] % display.HEIGHT;
+    var pos_x: usize = dev.reg.v[reg_x] % c8.display.WIDTH;
+    var pos_y: usize = dev.reg.v[reg_y] % c8.display.HEIGHT;
     dev.reg.v[0xf] = 0;
 
     for (0..rows) |row| {
-        if (pos_y >= display.HEIGHT) {
+        if (pos_y >= c8.display.HEIGHT) {
             break;
         }
         // TODO: Overflow check maybe
@@ -215,7 +215,7 @@ fn displayI(reg_x: u4, reg_y: u4, rows: u4, dev: *Devices) void {
         var idx: i4 = 7;
         while (idx >= 0) : (idx -= 1) {
             const pixel: u1 = @truncate(sprite_byte >> @intCast(idx));
-            if (pos_x >= display.WIDTH) {
+            if (pos_x >= c8.display.WIDTH) {
                 break;
             }
             if (pixel == 1 and dev.screen[pos_x][pos_y] == 1) {
@@ -232,7 +232,7 @@ fn displayI(reg_x: u4, reg_y: u4, rows: u4, dev: *Devices) void {
 
 test "execute displayI instruction" {
     var dev: Devices = .{};
-    debug.assert(dev.pc.addr == memory.PROGRAM_START);
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr] = 0xd0;
     dev.ram[dev.pc.addr + 1] = 0x11;
     dev.reg.v[0] = 1;
