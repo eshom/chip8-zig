@@ -1,11 +1,9 @@
 const std = @import("std");
-const heap = std.heap;
-const debug = std.debug;
 const time = std.time;
+const heap = std.heap;
 const log = std.log;
-const math = std.math;
 
-const c8 = @import("chip8.zig");
+const c8 = @import("chip8");
 
 const Allocator = std.mem.Allocator;
 const Cycle = c8.timing.Cycle;
@@ -15,8 +13,9 @@ const ProgramCounter = c8.inst.ProgramCounter;
 const Memory = c8.memory.Memory;
 const Reg = c8.memory.Reg;
 const Screen = c8.display.Screen;
+const Config = @import("Config.zig");
+
 const Devices = c8.Devices;
-const Config = c8.Config;
 
 pub const std_options = .{
     .log_level = .debug,
@@ -24,14 +23,8 @@ pub const std_options = .{
 
 pub fn main() !void {
     c8.raylib.setLogLevel(.log_error);
-    var dev: Devices = .{};
-
-    var _fba = heap.FixedBufferAllocator.init(dev.ram[c8.memory.PROGRAM_START..]);
-    const fba = _fba.allocator();
-
-    c8.font.setFont(&dev.ram, &c8.font.font_chars);
-
-    try mainLoop(fba, &dev);
+    var dev: c8.Devices = .{};
+    try mainLoop(heap.page_allocator, &dev); // using allocator as a dummy
 }
 
 pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
@@ -45,7 +38,7 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
 
     const debug_start_time = time.microTimestamp();
     var debug_curr_time = debug_start_time;
-    // var debug_last_print_time_us = debug_curr_time;
+    var debug_last_print_time_us = debug_curr_time;
 
     var cycles = Cycle{
         .curr_time_s = c8.timing.getTime(),
@@ -113,30 +106,17 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
         c8.timing.waitTime(Config.cpu_delay_s);
 
         // Debug stuff
-        // if (cycles.total % opt.debug_c8.timings_print_cycle == 0) {
-        //     log.debug("run time us: {d}, total cycle: {d}, last cycle time us: {d}, last print time us: {d}, time since last update: {d:.4}, last draw delta: {d:.4}", .{
-        //         time.microTimestamp() - debug_start_time,
-        //         cycles.total,
-        //         time.microTimestamp() - debug_curr_time,
-        //         time.microTimestamp() - debug_last_print_time_us,
-        //         cycles.time_since_draw_s,
-        //         cycles.last_draw_delta_s,
-        //     });
-        //     debug_last_print_time_us = time.microTimestamp();
-        // }
-
-        // log.debug("cycle: {d}, time since last tick: {d:.4}, sound timer: {d}", .{ cycles.total, sound_timer.last_tick_s, sound_timer.timer });
-        // log.debug("cycle: {d}, time since last tick: {d:.4}, delay timer: {d}", .{ cycles.total, delay_timer.last_tick_s, delay_timer.timer });
+        if (cycles.total % Config.debug_timings_print_cycle == 0) {
+            log.debug("run time us: {d}, total cycle: {d}, last cycle time us: {d}, last print time us: {d}, time since last update: {d:.4}, last draw delta: {d:.4}", .{
+                time.microTimestamp() - debug_start_time,
+                cycles.total,
+                time.microTimestamp() - debug_curr_time,
+                time.microTimestamp() - debug_last_print_time_us,
+                cycles.time_since_draw_s,
+                cycles.last_draw_delta_s,
+            });
+            debug_last_print_time_us = time.microTimestamp();
+            log.debug("cycle: {d}, time since last tick: {d:.4}, sound timer: {d}", .{ cycles.total, dev.sound_timer.last_tick_s, dev.sound_timer.timer });
+        }
     }
-}
-
-test {
-    _ = @import("memory.zig");
-    _ = @import("font.zig");
-    _ = @import("display.zig");
-    _ = @import("timing.zig");
-    _ = @import("raylib.zig");
-    _ = @import("input.zig");
-    _ = @import("inst.zig");
-    _ = @import("Config.zig");
 }

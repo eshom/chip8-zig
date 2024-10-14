@@ -2,7 +2,7 @@ pub const memory = @import("memory.zig");
 pub const font = @import("font.zig");
 pub const display = @import("display.zig");
 pub const timing = @import("timing.zig");
-pub const rl = @import("raylib.zig");
+pub const raylib = @import("raylib.zig");
 pub const input = @import("input.zig");
 pub const inst = @import("inst.zig");
 

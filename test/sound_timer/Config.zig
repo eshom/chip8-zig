@@ -1,4 +1,4 @@
-const c8 = @import("chip8.zig");
+const c8 = @import("chip8");
 
 // memory
 pub const stack_size = 100;
