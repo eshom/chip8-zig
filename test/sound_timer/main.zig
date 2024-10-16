@@ -93,7 +93,7 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
             if (dev.sound_timer.timer == 0) {
                 dev.sound_timer.timer = 240;
                 // clearScreen when timer goes out
-                (c8.inst.Inst{ .nb3 = 0xe }).execute(dev);
+                (c8.inst.Inst{ .nb3 = 0xe }).decode(dev);
             }
 
             c8.display.endDrawing();

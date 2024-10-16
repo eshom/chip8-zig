@@ -3,6 +3,7 @@ const mem = std.mem;
 const debug = std.debug;
 const testing = std.testing;
 const fmt = std.fmt;
+const log = std.log;
 
 const c8 = @import("chip8.zig");
 
@@ -20,7 +21,7 @@ pub const Inst = packed struct(u16) {
     nb2: u4 = 0x0,
     nb1: u4 = 0x0,
 
-    pub fn execute(self: Inst, dev: *Devices) void {
+    pub fn decode(self: Inst, dev: *Devices) void {
         switch (self.nb1) {
             0x0 => switch (self.nb3) {
                 0xe => {
@@ -67,8 +68,8 @@ test "ProgramCounter.fetch" {
     dev.ram[c8.memory.PROGRAM_START + 3] = 0x01;
 
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
-    const inst1 = dev.pc.fetch(&dev.ram);
-    const inst2 = dev.pc.fetch(&dev.ram);
+    const inst1 = try dev.pc.fetch(&dev.ram);
+    const inst2 = try dev.pc.fetch(&dev.ram);
 
     try testing.expectEqual(0xf00a, @as(u16, @bitCast(inst1)));
     try testing.expectEqual(0x5e01, @as(u16, @bitCast(inst2)));
@@ -97,9 +98,9 @@ test "execute jump instruction" {
     dev.ram[0x207] = 0xcd;
 
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
-    dev.pc.fetch(&dev.ram).execute(&dev);
-    dev.pc.fetch(&dev.ram).execute(&dev);
-    const inst = dev.pc.fetch(&dev.ram);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    const inst = try dev.pc.fetch(&dev.ram);
     try testing.expectEqual(0xabcd, @as(u16, @bitCast(inst)));
 }
 
@@ -119,9 +120,9 @@ test "execute call instruction" {
     dev.ram[0x209] = 0xcd;
 
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
-    dev.pc.fetch(&dev.ram).execute(&dev);
-    dev.pc.fetch(&dev.ram).execute(&dev);
-    const inst = dev.pc.fetch(&dev.ram);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    const inst = try dev.pc.fetch(&dev.ram);
     try testing.expectEqual(0xabcd, @as(u16, @bitCast(inst)));
     try testing.expectEqual(0x207, dev.stack.pop() catch @panic("trying to pop empty stack\n"));
     try testing.expectEqual(0x202, dev.stack.pop() catch @panic("trying to pop empty stack\n"));
@@ -141,9 +142,9 @@ test "execute ret instruction" {
     dev.ram[0x203] = 0xcd;
 
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
-    dev.pc.fetch(&dev.ram).execute(&dev);
-    dev.pc.fetch(&dev.ram).execute(&dev);
-    const inst = dev.pc.fetch(&dev.ram);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    const inst = try dev.pc.fetch(&dev.ram);
     try testing.expectEqual(0xabcd, @as(u16, @bitCast(inst)));
 }
 
@@ -156,7 +157,7 @@ test "execute set instruction" {
     dev.ram[c8.memory.PROGRAM_START] = 0x64;
     dev.ram[c8.memory.PROGRAM_START + 1] = 0x33;
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
-    dev.pc.fetch(&dev.ram).execute(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0x33, dev.reg.v[4]);
 }
 
@@ -169,15 +170,15 @@ test "execute add instruction" {
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr] = 0x65;
     dev.ram[dev.pc.addr + 1] = 0x33;
-    dev.pc.fetch(&dev.ram).execute(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
     dev.ram[dev.pc.addr] = 0x75;
     dev.ram[dev.pc.addr + 1] = 0x33;
-    dev.pc.fetch(&dev.ram).execute(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0x66, dev.reg.v[5]);
 
     dev.ram[dev.pc.addr] = 0x75;
     dev.ram[dev.pc.addr + 1] = 0xff;
-    dev.pc.fetch(&dev.ram).execute(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0xff, dev.reg.v[5]);
 }
 
@@ -190,17 +191,17 @@ test "execute setI instruction" {
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr] = 0xa2;
     dev.ram[dev.pc.addr + 1] = 0x00;
-    dev.pc.fetch(&dev.ram).execute(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0x200, dev.reg.i);
 
     dev.ram[dev.pc.addr] = 0xa2;
     dev.ram[dev.pc.addr + 1] = 0x50;
-    dev.pc.fetch(&dev.ram).execute(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0x250, dev.reg.i);
 
     dev.ram[dev.pc.addr] = 0xaf;
     dev.ram[dev.pc.addr + 1] = 0xff;
-    dev.pc.fetch(&dev.ram).execute(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0xfff, dev.reg.i);
 }
 
@@ -215,7 +216,10 @@ fn displayI(reg_x: u4, reg_y: u4, rows: u4, dev: *Devices) void {
         }
         // TODO: Overflow check maybe
         const sprite_byte = dev.ram[dev.reg.i + row];
+        log.debug("sprite = {b:0>8}", .{sprite_byte});
         var idx: i4 = 7;
+        const pos_x_orig = pos_x;
+        defer pos_x = pos_x_orig;
         while (idx >= 0) : (idx -= 1) {
             const pixel: u1 = @truncate(sprite_byte >> @intCast(idx));
             if (pos_x >= c8.display.WIDTH) {
@@ -242,26 +246,37 @@ test "execute displayI instruction" {
     dev.reg.v[1] = 16;
     dev.reg.i = 0x250;
     dev.ram[dev.reg.i] = 0b1111_1111;
-    dev.pc.fetch(&dev.ram).execute(&dev);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0, dev.reg.v[0xf]);
 
-    var actual: [8]u1 = undefined;
+    var actual1: [8]u1 = undefined;
+    var actual2: [8]u1 = undefined;
+    var actual3: [8]u1 = undefined;
 
-    for (1..9, 0..) |screen_i, idx| {
-        actual[idx] = dev.screen[screen_i][16];
+    for (0..8) |idx| {
+        actual1[idx] = dev.screen[dev.reg.v[0] + idx][dev.reg.v[1]];
     }
 
-    try testing.expectEqualSlices(u1, &[_]u1{1} ** 8, &actual);
+    try testing.expectEqual(1, dev.reg.v[0]);
+    try testing.expectEqual(16, dev.reg.v[1]);
+    try testing.expectEqual(0, dev.reg.v[0xf]);
+    try testing.expectEqualSlices(u1, &[_]u1{1} ** 8, &actual1);
 
     dev.ram[dev.pc.addr] = 0xd0;
-    dev.ram[dev.pc.addr + 1] = 0x11;
+    dev.ram[dev.pc.addr + 1] = 0x12;
     dev.ram[dev.reg.i] = 0b1000_1000;
-    dev.pc.fetch(&dev.ram).execute(&dev);
-    try testing.expectEqual(1, dev.reg.v[0xf]);
+    dev.ram[dev.reg.i + 1] = 0b0001_0001;
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
 
-    for (1..9, 0..) |screen_i, idx| {
-        actual[idx] = dev.screen[screen_i][16];
+    for (0..8) |idx| {
+        actual2[idx] = dev.screen[dev.reg.v[0] + idx][dev.reg.v[1]];
     }
 
-    try testing.expectEqualSlices(u1, &[_]u1{ 0, 1, 1, 1, 0, 1, 1, 1 }, &actual);
+    for (0..8) |idx| {
+        actual3[idx] = dev.screen[dev.reg.v[0] + idx][dev.reg.v[1] + 1];
+    }
+
+    try testing.expectEqual(1, dev.reg.v[0xf]);
+    try testing.expectEqualSlices(u1, &[_]u1{ 0, 1, 1, 1, 0, 1, 1, 1 }, &actual2);
+    try testing.expectEqualSlices(u1, &[_]u1{ 0, 0, 0, 1, 0, 0, 0, 1 }, &actual3);
 }

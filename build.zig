@@ -51,6 +51,7 @@ pub fn build(b: *std.Build) void {
     exe_unit_tests.addLibraryPath(b.path("vendor/raylib/src"));
     exe_unit_tests.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    check.dependOn(&exe_unit_tests.step);
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_exe_unit_tests.step);
@@ -85,4 +86,23 @@ pub fn build(b: *std.Build) void {
     }
     const test_sound_timer_runner_step = b.step("test-sound-timer", "Sound timer test app");
     test_sound_timer_runner_step.dependOn(&test_sound_timer_runner.step);
+
+    const test_display = b.addExecutable(.{
+        .name = "chip8-zig",
+        .root_source_file = b.path("test/display/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    test_display.addIncludePath(b.path("vendor/raylib/src"));
+    test_display.addLibraryPath(b.path("vendor/raylib/src"));
+    test_display.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
+    test_display.root_module.addImport("chip8", _exe);
+    const test_display_runner = b.addRunArtifact(test_display);
+    test_display_runner.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        test_display_runner.addArgs(args);
+    }
+    const test_display_runner_step = b.step("test-display", "display test app");
+    test_display_runner_step.dependOn(&test_display_runner.step);
 }

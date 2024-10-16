@@ -5,7 +5,7 @@ const time = std.time;
 const log = std.log;
 const math = std.math;
 
-const c8 = @import("chip8.zig");
+const c8 = @import("chip8");
 
 const Allocator = std.mem.Allocator;
 const Cycle = c8.timing.Cycle;
@@ -19,21 +19,41 @@ const Devices = c8.Devices;
 const Config = c8.Config;
 
 pub const std_options = .{
-    .log_level = .info,
+    .log_level = .debug,
 };
+
+fn loopAtEnd(dev: *Devices) void {
+    dev.ram[0x500] = 0x15;
+    dev.ram[0x501] = 0x00;
+}
+
+fn drawTopLeftX(dev: *Devices) void {
+    dev.reg.v[0] = 0;
+    dev.reg.i = 0x502;
+    dev.ram[0x502] = 0b1000_0001;
+    dev.ram[0x503] = 0b0100_0010;
+    dev.ram[0x504] = 0b0010_0100;
+    dev.ram[0x505] = 0b0001_1000;
+    dev.ram[0x506] = 0b0001_1000;
+    dev.ram[0x507] = 0b0010_0100;
+    dev.ram[0x508] = 0b0100_0010;
+    dev.ram[0x509] = 0b1000_0001;
+
+    dev.ram[0x200] = 0xd0;
+    dev.ram[0x201] = 0x08;
+}
 
 pub fn main() !void {
     c8.raylib.setLogLevel(.log_error);
     var dev: Devices = .{};
 
-    // TODO: Do I need an allocator? If so it must not override font area and rom
     var _fba = heap.FixedBufferAllocator.init(dev.ram[c8.memory.PROGRAM_START..]);
     const fba = _fba.allocator();
 
-    c8.font.setFont(&dev.ram, &c8.font.font_chars);
+    // write instructions to memory
+    loopAtEnd(&dev);
+    drawTopLeftX(&dev);
 
-    const rom = try c8.rom.Rom.read(c8.Config.rom_file);
-    rom.load(&dev.ram);
     try mainLoop(fba, &dev);
 }
 
@@ -79,8 +99,4 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
 
         c8.timing.waitTime(Config.cpu_delay_s);
     }
-}
-
-test {
-    _ = @import("chip8.zig");
 }
