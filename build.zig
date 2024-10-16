@@ -80,7 +80,7 @@ pub fn build(b: *std.Build) void {
     const test_sound_timer_step = testProg(b, TestAppStepOptions{
         .main_source = b.path("test/sound_timer/main.zig"),
         .step_name = "test-sound-timer",
-        .step_desc = "Sound timer test app",
+        .step_desc = "Sound timer test",
         .chip8 = _exe,
         .target = target,
         .optimize = optimize,
@@ -89,7 +89,16 @@ pub fn build(b: *std.Build) void {
     const test_display_step = testProg(b, TestAppStepOptions{
         .main_source = b.path("test/display/main.zig"),
         .step_name = "test-display",
-        .step_desc = "Display test app",
+        .step_desc = "Display test",
+        .chip8 = _exe,
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const test_ibm_step = testProg(b, TestAppStepOptions{
+        .main_source = b.path("test/ibm/main.zig"),
+        .step_name = "test-ibm",
+        .step_desc = "IBM logo test",
         .chip8 = _exe,
         .target = target,
         .optimize = optimize,
@@ -98,6 +107,7 @@ pub fn build(b: *std.Build) void {
     const test_all = b.step("test-all", "Run all test apps one by one");
     test_all.dependOn(test_sound_timer_step);
     test_all.dependOn(test_display_step);
+    test_all.dependOn(test_ibm_step);
 }
 
 fn testProg(b: *std.Build, opt: anytype) *std.Build.Step {
