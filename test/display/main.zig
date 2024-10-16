@@ -60,6 +60,8 @@ pub fn main() !void {
 pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
     _ = ally;
 
+    const start_time = time.timestamp();
+    const test_time = 5;
     c8.display.initWindow("CHIP-8", .{ .scale = Config.scale });
     defer c8.display.closeWindow();
 
@@ -98,5 +100,9 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
         }
 
         c8.timing.waitTime(Config.cpu_delay_s);
+
+        if (time.timestamp() - start_time > test_time) {
+            break;
+        }
     }
 }

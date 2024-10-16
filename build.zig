@@ -68,41 +68,58 @@ pub fn build(b: *std.Build) void {
     _exe.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
 
     // Testing apps
-    const test_sound_timer = b.addExecutable(.{
-        .name = "chip8-zig",
-        .root_source_file = b.path("test/sound_timer/main.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
-    });
-    test_sound_timer.addIncludePath(b.path("vendor/raylib/src"));
-    test_sound_timer.addLibraryPath(b.path("vendor/raylib/src"));
-    test_sound_timer.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
-    test_sound_timer.root_module.addImport("chip8", _exe);
-    const test_sound_timer_runner = b.addRunArtifact(test_sound_timer);
-    test_sound_timer_runner.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        test_sound_timer_runner.addArgs(args);
-    }
-    const test_sound_timer_runner_step = b.step("test-sound-timer", "Sound timer test app");
-    test_sound_timer_runner_step.dependOn(&test_sound_timer_runner.step);
+    const TestAppStepOptions = struct {
+        main_source: std.Build.LazyPath,
+        step_name: []const u8,
+        step_desc: []const u8,
+        chip8: *std.Build.Module,
+        target: std.Build.ResolvedTarget,
+        optimize: std.builtin.OptimizeMode,
+    };
 
-    const test_display = b.addExecutable(.{
-        .name = "chip8-zig",
-        .root_source_file = b.path("test/display/main.zig"),
+    const test_sound_timer_step = testProg(b, TestAppStepOptions{
+        .main_source = b.path("test/sound_timer/main.zig"),
+        .step_name = "test-sound-timer",
+        .step_desc = "Sound timer test app",
+        .chip8 = _exe,
         .target = target,
         .optimize = optimize,
+    });
+
+    const test_display_step = testProg(b, TestAppStepOptions{
+        .main_source = b.path("test/display/main.zig"),
+        .step_name = "test-display",
+        .step_desc = "Display test app",
+        .chip8 = _exe,
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const test_all = b.step("test-all", "Run all test apps one by one");
+    test_all.dependOn(test_sound_timer_step);
+    test_all.dependOn(test_display_step);
+}
+
+fn testProg(b: *std.Build, opt: anytype) *std.Build.Step {
+    const test_prog = b.addExecutable(.{
+        .name = "chip8-zig",
+        .root_source_file = opt.main_source,
+        .target = opt.target,
+        .optimize = opt.optimize,
         .link_libc = true,
     });
-    test_display.addIncludePath(b.path("vendor/raylib/src"));
-    test_display.addLibraryPath(b.path("vendor/raylib/src"));
-    test_display.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
-    test_display.root_module.addImport("chip8", _exe);
-    const test_display_runner = b.addRunArtifact(test_display);
-    test_display_runner.step.dependOn(b.getInstallStep());
+    test_prog.addIncludePath(b.path("vendor/raylib/src"));
+    test_prog.addLibraryPath(b.path("vendor/raylib/src"));
+    test_prog.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
+    test_prog.root_module.addImport("chip8", opt.chip8);
+    const test_prog_runner = b.addRunArtifact(test_prog);
+    test_prog_runner.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
-        test_display_runner.addArgs(args);
+        test_prog_runner.addArgs(args);
     }
-    const test_display_runner_step = b.step("test-display", "display test app");
-    test_display_runner_step.dependOn(&test_display_runner.step);
+
+    const out_step = b.step(opt.step_name, opt.step_desc);
+    out_step.dependOn(&test_prog_runner.step);
+
+    return out_step;
 }

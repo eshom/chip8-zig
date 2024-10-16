@@ -33,6 +33,8 @@ pub const waitTime = rl.WaitTime;
 pub const getTime = rl.GetTime;
 pub const initAudioDevice = rl.InitAudioDevice;
 pub const playSound = rl.PlaySound;
+pub const getMasterVolume = rl.GetMasterVolume;
+pub const setMasterVolume = rl.SetMasterVolume;
 
 pub fn loadSound(filename: [:0]const u8) rl.Sound {
     return rl.LoadSound(filename);

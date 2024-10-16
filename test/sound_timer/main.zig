@@ -29,8 +29,11 @@ pub fn main() !void {
 
 pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
     _ = ally;
+    const start_time = time.timestamp();
+    const test_time = 5;
 
     c8.timing.initAudioDevice();
+    c8.timing.setMasterVolume(Config.initial_volume);
     const beep = c8.timing.loadSound(dev.sound_timer.sound);
 
     c8.display.initWindow("CHIP-8", .{ .scale = Config.scale });
@@ -117,6 +120,10 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
             });
             debug_last_print_time_us = time.microTimestamp();
             log.debug("cycle: {d}, time since last tick: {d:.4}, sound timer: {d}", .{ cycles.total, dev.sound_timer.last_tick_s, dev.sound_timer.timer });
+        }
+
+        if (time.timestamp() - start_time > test_time) {
+            break;
         }
     }
 }
