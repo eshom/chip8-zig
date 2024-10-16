@@ -16,7 +16,7 @@ const Memory = c8.memory.Memory;
 const Reg = c8.memory.Reg;
 const Screen = c8.display.Screen;
 const Devices = c8.Devices;
-const Config = c8.Config;
+const Config = @import("Config.zig");
 
 pub const std_options = .{
     .log_level = .info,
@@ -46,7 +46,7 @@ pub fn main() !void {
 
     c8.font.setFont(&dev.ram, &c8.font.font_chars);
 
-    const rom = try c8.rom.Rom.read(c8.Config.rom_file);
+    const rom = try c8.rom.Rom.read(Config.rom_file);
     rom.load(&dev.ram);
     try mainLoop(fba, &dev);
 }

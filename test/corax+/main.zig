@@ -19,28 +19,22 @@ const Devices = c8.Devices;
 const Config = @import("Config.zig");
 
 pub const std_options = .{
-    .log_level = .debug,
+    .log_level = .info,
 };
 
-fn loopAtEnd(dev: *Devices) void {
-    dev.ram[0x500] = 0x15;
-    dev.ram[0x501] = 0x00;
-}
+fn exitTime(t: i64) void {
+    const timer = struct {
+        var start: i64 = -1;
+    };
 
-fn drawTopLeftX(dev: *Devices) void {
-    dev.reg.v[0] = 0;
-    dev.reg.i = 0x502;
-    dev.ram[0x502] = 0b1000_0001;
-    dev.ram[0x503] = 0b0100_0010;
-    dev.ram[0x504] = 0b0010_0100;
-    dev.ram[0x505] = 0b0001_1000;
-    dev.ram[0x506] = 0b0001_1000;
-    dev.ram[0x507] = 0b0010_0100;
-    dev.ram[0x508] = 0b0100_0010;
-    dev.ram[0x509] = 0b1000_0001;
+    if (timer.start == -1) {
+        timer.start = time.timestamp();
+        return;
+    }
 
-    dev.ram[0x200] = 0xd0;
-    dev.ram[0x201] = 0x08;
+    if (time.timestamp() - timer.start > t) {
+        std.process.exit(0);
+    }
 }
 
 pub fn main() !void {
@@ -50,18 +44,15 @@ pub fn main() !void {
     var _fba = heap.FixedBufferAllocator.init(dev.ram[c8.memory.PROGRAM_START..]);
     const fba = _fba.allocator();
 
-    // write instructions to memory
-    loopAtEnd(&dev);
-    drawTopLeftX(&dev);
+    c8.font.setFont(&dev.ram, &c8.font.font_chars);
 
+    const rom = try c8.rom.Rom.read(Config.rom_file);
+    rom.load(&dev.ram);
     try mainLoop(fba, &dev);
 }
 
 pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
     _ = ally;
-
-    const start_time = time.timestamp();
-    const test_time = 5;
     c8.display.initWindow("CHIP-8", .{ .scale = Config.scale });
     defer c8.display.closeWindow();
 
@@ -100,9 +91,6 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
         }
 
         c8.timing.waitTime(Config.cpu_delay_s);
-
-        if (time.timestamp() - start_time > test_time) {
-            break;
-        }
+        exitTime(10);
     }
 }

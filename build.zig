@@ -104,11 +104,22 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // TODO: Make the execution order not random somehow, but not duplicate steps
+    const test_corax_step = testProg(b, TestAppStepOptions{
+        .main_source = b.path("test/corax+/main.zig"),
+        .step_name = "test-corax",
+        .step_desc = "Corax+ opcodes test",
+        .chip8 = _exe,
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // TODO: Make the execution order not random somehow, but not duplicate steps.
+    // For the test suite at least make it run in order
     const test_all = b.step("test-all", "Run all test apps one by one");
     test_all.dependOn(test_sound_timer_step);
     test_all.dependOn(test_display_step);
     test_all.dependOn(test_ibm_step);
+    test_all.dependOn(test_corax_step);
 }
 
 fn testProg(b: *std.Build, opt: anytype) *std.Build.Step {
