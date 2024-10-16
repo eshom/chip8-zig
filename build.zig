@@ -104,6 +104,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // TODO: Make the execution order not random somehow, but not duplicate steps
     const test_all = b.step("test-all", "Run all test apps one by one");
     test_all.dependOn(test_sound_timer_step);
     test_all.dependOn(test_display_step);
