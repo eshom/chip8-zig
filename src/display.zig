@@ -1,6 +1,7 @@
 const std = @import("std");
 const log = std.log;
-const rl = @import("raylib.zig").rl;
+const debug = std.debug;
+const rl = @import("chip8.zig").raylib.rl;
 
 pub const WIDTH = 64;
 pub const HEIGHT = 32;
@@ -47,5 +48,14 @@ pub fn drawScreen(scr: *const Screen, scale: u16, color: rl.Color) void {
                 drawPixelScaled(x, y, scale, color);
             }
         }
+    }
+}
+
+pub fn debugDumpScreen(scr: *const Screen) void {
+    for (0..WIDTH) |col| {
+        for (0..HEIGHT) |row| {
+            std.debug.print("{d}", .{scr[col][row]});
+        }
+        std.debug.print("\n", .{});
     }
 }

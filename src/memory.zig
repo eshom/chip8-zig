@@ -67,14 +67,14 @@ test "Reg" {
     try testing.expectEqualDeep(Reg{ .v = [_]u8{ 0, 5, 10 } ++ .{0} ** 13, .i = 0xaaa }, reg);
 }
 
-pub fn debugDumpMemory(memory: []const u8, bytes_per_line: u8) void {
+pub fn debugDumpMemory(memory: []const u8, bytes_per_line: u8, offset_start: u12) void {
     var idx: usize = 0;
     var bpair: [2]u8 = undefined;
     while (idx < memory.len) : (idx += 2) {
         bpair = .{ memory[idx], memory[idx + 1] };
         if (idx % bytes_per_line == 0) {
             debug.print("\n", .{});
-            debug.print("0x{x:0>3}: ", .{idx});
+            debug.print("0x{x:0>3}: ", .{idx + offset_start});
         }
         debug.print("{x:0>2}{x:0>2} ", .{ bpair[0], bpair[1] });
     }
