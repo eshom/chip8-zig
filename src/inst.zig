@@ -14,12 +14,11 @@ const Devices = c8.Devices;
 const Reg = c8.memory.Reg;
 const Config = @import("Config.zig");
 
-//TODO: Better handling of big endian platforms
 pub const Inst = packed struct(u16) {
-    nb4: u4 = 0x0,
+    nb4: u4 = 0x0, // least significant
     nb3: u4 = 0x0,
     nb2: u4 = 0x0,
-    nb1: u4 = 0x0,
+    nb1: u4 = 0x0, // most significant
 
     pub fn decode(self: Inst, dev: *Devices) void {
         const lower_byte: u8 = @truncate(@as(u16, @bitCast(self)));
@@ -51,14 +50,24 @@ pub const Inst = packed struct(u16) {
                 0x3 => xorXY(self.nb2, self.nb3, dev),
                 0x4 => addXY(self.nb2, self.nb3, dev),
                 0x5 => subXY(self.nb2, self.nb3, dev),
-                0x6 => shrXY(self.nb2, self.nb3, dev),
+                0x6 => shrXY(self.nb2, self.nb3, dev, Config.original_bitshift),
                 0x7 => subYX(self.nb2, self.nb3, dev),
-                0xE => shlXY(self.nb2, self.nb3, dev),
+                0xe => shlXY(self.nb2, self.nb3, dev, Config.original_bitshift),
                 else => noop(),
             },
             0x9 => skipNotEqXY(self.nb2, self.nb3, dev),
             0xa => setI(lower_three, dev),
             0xd => displayI(self.nb2, self.nb3, self.nb4, dev),
+            0xf => switch (self.nb3) {
+                0x1 => switch (self.nb4) {
+                    0xe => addI(self.nb2, dev, Config.flag_index_register_overflow),
+                    else => noop(),
+                },
+                0x3 => bcdc(self.nb2, dev),
+                0x5 => memStore(self.nb2, dev, Config.original_memory_load_store),
+                0x6 => memLoad(self.nb2, dev, Config.original_memory_load_store),
+                else => noop(),
+            },
             else => noop(),
         }
     }
@@ -369,16 +378,44 @@ fn subYX(reg_x: u4, reg_y: u4, dev: *Devices) void {
     dev.reg.v[0xf] = ~carry;
 }
 
-fn shrXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
-    dev.reg.v[reg_x] = if (Config.original_bitshift) dev.reg.v[reg_y] else dev.reg.v[reg_x];
+fn shrXY(reg_x: u4, reg_y: u4, dev: *Devices, orig: bool) void {
+    dev.reg.v[reg_x] = if (orig) dev.reg.v[reg_y] else dev.reg.v[reg_x];
     const least_bit: u1 = @truncate(0 & dev.reg.v[reg_x]);
     dev.reg.v[reg_x] >>= 1;
     dev.reg.v[0xf] = least_bit;
 }
 
-fn shlXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
-    dev.reg.v[reg_x] = if (Config.original_bitshift) dev.reg.v[reg_y] else dev.reg.v[reg_x];
+fn shlXY(reg_x: u4, reg_y: u4, dev: *Devices, orig: bool) void {
+    dev.reg.v[reg_x] = if (orig) dev.reg.v[reg_y] else dev.reg.v[reg_x];
     const most_bit: u1 = @truncate(dev.reg.v[reg_x] >> 7);
     dev.reg.v[reg_x] <<= 1;
     dev.reg.v[0xf] = most_bit;
+}
+
+fn memStore(reg_x: u4, dev: *Devices, orig: bool) void {
+    const to: u8 = reg_x;
+    @memcpy(dev.ram[dev.reg.i .. dev.reg.i + to + 1], dev.reg.v[0 .. to + 1]);
+    if (orig) {
+        dev.reg.i += reg_x + 1;
+    }
+}
+
+fn memLoad(reg_x: u4, dev: *Devices, orig: bool) void {
+    const to: u8 = reg_x;
+    @memcpy(dev.reg.v[0 .. to + 1], dev.ram[dev.reg.i .. dev.reg.i + to + 1]);
+    if (orig) {
+        dev.reg.i += reg_x + 1;
+    }
+}
+
+fn bcdc(reg_x: u4, dev: *Devices) void {
+    dev.ram[dev.reg.i] = @divTrunc(dev.reg.v[reg_x], 100);
+    dev.ram[dev.reg.i + 1] = @divTrunc(dev.reg.v[reg_x], 10) % 10;
+    dev.ram[dev.reg.i + 2] = dev.reg.v[reg_x] % 10;
+}
+
+fn addI(reg_x: u4, dev: *Devices, set_overflow_flag: bool) void {
+    const sum, const carry = @addWithOverflow(@as(u12, dev.reg.v[reg_x]), dev.reg.i);
+    dev.reg.v[0xf] = if (set_overflow_flag) carry else dev.reg.v[0xf];
+    dev.reg.i = sum;
 }

@@ -11,6 +11,8 @@ pub const scale: u16 = 16;
 // CPU
 pub const cpu_delay_s: f64 = 0.0012; // Goal is 700 instructions per second
 pub const original_bitshift = true;
+pub const original_memory_load_store = false;
+pub const flag_index_register_overflow = false;
 
 // Debug
 pub const debug_timings_print_cycle: usize = 100;
