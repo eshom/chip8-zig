@@ -43,7 +43,10 @@ pub const Rom = struct {
         @memcpy(rom_section, self.bytes);
     }
 
-    // TODO: unload()
+    pub fn unload(self: *const Rom, memo: *c8.memory.Memory) void {
+        const rom_section = memo[c8.memory.PROGRAM_START .. c8.memory.PROGRAM_START + self.bytes.len];
+        @memset(rom_section, 0);
+    }
 };
 
 test "read rom" {
@@ -65,4 +68,23 @@ test "read rom" {
 
     const rom = try Rom.read("roms/ibm-logo-test.ch8");
     try std.testing.expectEqualSlices(u8, &expected, rom.bytes);
+}
+
+test "load and unload rom" {
+    var dev: c8.Devices = .{};
+    const expected = [_]u8{ 0x00, 0xe0, 0xa2, 0x2a, 0x60, 0x0c };
+    var rom_bytes: @TypeOf(expected) = undefined;
+    @memcpy(&rom_bytes, &expected);
+
+    const rom = Rom{ .bytes = &rom_bytes };
+    dev.ram[c8.memory.PROGRAM_START - 1] = 0xaa;
+    dev.ram[rom_bytes.len] = 0xaa;
+    rom.load(&dev.ram);
+    try testing.expectEqual(0xaa, dev.ram[c8.memory.PROGRAM_START - 1]);
+    try testing.expectEqual(0xaa, dev.ram[rom_bytes.len]);
+    try testing.expectEqualSlices(u8, &expected, dev.ram[c8.memory.PROGRAM_START .. c8.memory.PROGRAM_START + rom.bytes.len]);
+    rom.unload(&dev.ram);
+    try testing.expectEqual(0xaa, dev.ram[c8.memory.PROGRAM_START - 1]);
+    try testing.expectEqual(0xaa, dev.ram[rom_bytes.len]);
+    try testing.expectEqualSlices(u8, &[_]u8{0} ** 6, dev.ram[c8.memory.PROGRAM_START .. c8.memory.PROGRAM_START + rom.bytes.len]);
 }

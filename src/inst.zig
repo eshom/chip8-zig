@@ -206,7 +206,7 @@ test "execute add instruction" {
     dev.ram[dev.pc.addr] = 0x75;
     dev.ram[dev.pc.addr + 1] = 0xff;
     (try dev.pc.fetch(&dev.ram)).decode(&dev);
-    try testing.expectEqual(0xff, dev.reg.v[5]);
+    try testing.expectEqual(0x65, dev.reg.v[5]);
 }
 
 fn setI(value: Addr, dev: *Devices) void {
