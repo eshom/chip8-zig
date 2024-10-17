@@ -12,7 +12,7 @@ const Memory = c8.memory.Memory;
 const Screen = c8.display.Screen;
 const Devices = c8.Devices;
 const Reg = c8.memory.Reg;
-const Config = c8.Config;
+const Config = @import("Config.zig");
 
 //TODO: Better handling of big endian platforms
 pub const Inst = packed struct(u16) {
@@ -22,26 +22,44 @@ pub const Inst = packed struct(u16) {
     nb1: u4 = 0x0,
 
     pub fn decode(self: Inst, dev: *Devices) void {
+        const lower_byte: u8 = @truncate(@as(u16, @bitCast(self)));
+        const lower_three: u12 = @truncate(@as(u16, @bitCast(self)));
         switch (self.nb1) {
             0x0 => switch (self.nb3) {
                 0xe => {
                     if (self.nb4 == 0x0 and self.nb2 == 0x0) {
-                        clearScreen(&dev.screen);
+                        clearScreen(dev);
                     } else if (self.nb4 == 0xe and self.nb2 == 0x0) {
                         ret(dev);
                     } else {
                         noop(); // unsupported instruction `0NNN`
                     }
                 },
-                0x0...0xd, 0xf => noop(),
+                else => noop(),
             },
-            0x1 => jump(@truncate(@as(u16, @bitCast(self))), &dev.pc),
-            0x2 => call(@truncate(@as(u16, @bitCast(self))), dev),
-            0x6 => set(self.nb2, @truncate(@as(u16, @bitCast(self))), &dev.reg),
-            0x7 => add(self.nb2, @truncate(@as(u16, @bitCast(self))), &dev.reg),
-            0xa => setI(@truncate(@as(u16, @bitCast(self))), &dev.reg),
+            0x1 => jump(lower_three, dev),
+            0x2 => call(lower_three, dev),
+            0x3 => skipEqX(self.nb2, lower_byte, dev),
+            0x4 => skipNotEqX(self.nb2, lower_byte, dev),
+            0x5 => skipEqXY(self.nb2, self.nb3, dev),
+            0x6 => setX(self.nb2, lower_byte, dev),
+            0x7 => addX(self.nb2, lower_byte, dev),
+            0x8 => switch (self.nb4) {
+                0x0 => setXY(self.nb2, self.nb3, dev),
+                0x1 => orXY(self.nb2, self.nb3, dev),
+                0x2 => andXY(self.nb2, self.nb3, dev),
+                0x3 => xorXY(self.nb2, self.nb3, dev),
+                0x4 => addXY(self.nb2, self.nb3, dev),
+                0x5 => subXY(self.nb2, self.nb3, dev),
+                0x6 => shrXY(self.nb2, self.nb3, dev),
+                0x7 => subYX(self.nb2, self.nb3, dev),
+                0xE => shlXY(self.nb2, self.nb3, dev),
+                else => noop(),
+            },
+            0x9 => skipNotEqXY(self.nb2, self.nb3, dev),
+            0xa => setI(lower_three, dev),
             0xd => displayI(self.nb2, self.nb3, self.nb4, dev),
-            0x3...0x5, 0x8...0x9, 0xb, 0xc, 0xe...0xf => noop(),
+            else => noop(),
         }
     }
 };
@@ -79,12 +97,12 @@ fn noop() void {
     return;
 }
 
-fn clearScreen(screen: *c8.display.Screen) void {
-    @memset(screen, .{0} ** c8.display.HEIGHT);
+fn clearScreen(dev: *Devices) void {
+    @memset(&dev.screen, .{0} ** c8.display.HEIGHT);
 }
 
-fn jump(addr: Addr, pc: *ProgramCounter) void {
-    pc.addr = addr;
+fn jump(addr: Addr, dev: *Devices) void {
+    dev.pc.addr = addr;
 }
 
 test "execute jump instruction" {
@@ -148,8 +166,8 @@ test "execute ret instruction" {
     try testing.expectEqual(0xabcd, @as(u16, @bitCast(inst)));
 }
 
-fn set(dest_reg: u4, value: u8, reg: *Reg) void {
-    reg.v[dest_reg] = value;
+fn setX(dest_reg: u4, value: u8, dev: *Devices) void {
+    dev.reg.v[dest_reg] = value;
 }
 
 test "execute set instruction" {
@@ -161,8 +179,8 @@ test "execute set instruction" {
     try testing.expectEqual(0x33, dev.reg.v[4]);
 }
 
-fn add(dest_reg: u4, value: u8, reg: *Reg) void {
-    reg.v[dest_reg] +|= value;
+fn addX(dest_reg: u4, value: u8, dev: *Devices) void {
+    dev.reg.v[dest_reg] +%= value;
 }
 
 test "execute add instruction" {
@@ -182,8 +200,8 @@ test "execute add instruction" {
     try testing.expectEqual(0xff, dev.reg.v[5]);
 }
 
-fn setI(value: Addr, reg: *Reg) void {
-    reg.i = value;
+fn setI(value: Addr, dev: *Devices) void {
+    dev.reg.i = value;
 }
 
 test "execute setI instruction" {
@@ -279,4 +297,88 @@ test "execute displayI instruction" {
     try testing.expectEqual(1, dev.reg.v[0xf]);
     try testing.expectEqualSlices(u1, &[_]u1{ 0, 1, 1, 1, 0, 1, 1, 1 }, &actual2);
     try testing.expectEqualSlices(u1, &[_]u1{ 0, 0, 0, 1, 0, 0, 0, 1 }, &actual3);
+}
+
+fn skipEqX(reg_x: u4, compare: u8, dev: *Devices) void {
+    if (dev.reg.v[reg_x] == compare) {
+        dev.pc.addr +|= 2;
+        return;
+    } else {
+        return;
+    }
+}
+
+fn skipNotEqX(reg_x: u4, compare: u8, dev: *Devices) void {
+    if (dev.reg.v[reg_x] == compare) {
+        return;
+    } else {
+        dev.pc.addr +|= 2;
+        return;
+    }
+}
+
+fn skipEqXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    if (dev.reg.v[reg_x] == dev.reg.v[reg_y]) {
+        dev.pc.addr +|= 2;
+        return;
+    } else {
+        return;
+    }
+}
+
+fn skipNotEqXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    if (dev.reg.v[reg_x] == dev.reg.v[reg_y]) {
+        return;
+    } else {
+        dev.pc.addr +|= 2;
+        return;
+    }
+}
+
+fn setXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    dev.reg.v[reg_x] = dev.reg.v[reg_y];
+}
+
+fn orXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    dev.reg.v[reg_x] |= dev.reg.v[reg_y];
+}
+
+fn andXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    dev.reg.v[reg_x] &= dev.reg.v[reg_y];
+}
+
+fn xorXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    dev.reg.v[reg_x] ^= dev.reg.v[reg_y];
+}
+
+fn addXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    const sum, const carry = @addWithOverflow(dev.reg.v[reg_x], dev.reg.v[reg_y]);
+    dev.reg.v[reg_x] = sum;
+    dev.reg.v[0xf] = carry;
+}
+
+fn subXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    const res, const carry = @subWithOverflow(dev.reg.v[reg_x], dev.reg.v[reg_y]);
+    dev.reg.v[reg_x] = res;
+    dev.reg.v[0xf] = ~carry;
+}
+
+fn subYX(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    const res, const carry = @subWithOverflow(dev.reg.v[reg_y], dev.reg.v[reg_x]);
+    dev.reg.v[reg_x] = res;
+    dev.reg.v[0xf] = ~carry;
+}
+
+fn shrXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    dev.reg.v[reg_x] = if (Config.original_bitshift) dev.reg.v[reg_y] else dev.reg.v[reg_x];
+    const least_bit: u1 = @truncate(0 & dev.reg.v[reg_x]);
+    dev.reg.v[reg_x] >>= 1;
+    dev.reg.v[0xf] = least_bit;
+}
+
+fn shlXY(reg_x: u4, reg_y: u4, dev: *Devices) void {
+    dev.reg.v[reg_x] = if (Config.original_bitshift) dev.reg.v[reg_y] else dev.reg.v[reg_x];
+    const most_bit: u1 = @truncate(dev.reg.v[reg_x] >> 7);
+    dev.reg.v[reg_x] <<= 1;
+    dev.reg.v[0xf] = most_bit;
 }

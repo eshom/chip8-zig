@@ -10,6 +10,7 @@ pub const scale = 16;
 
 // CPU
 pub const cpu_delay_s = 0.0012; // Goal is 700 instructions per second
+pub const original_bitshift = true;
 
 // Debug
 pub const debug_timings_print_cycle = 100;
