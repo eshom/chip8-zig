@@ -6,6 +6,7 @@ const log = std.log;
 const math = std.math;
 
 const c8 = @import("chip8");
+const options = @import("options");
 
 const Allocator = std.mem.Allocator;
 const Cycle = c8.timing.Cycle;
@@ -18,8 +19,6 @@ const Screen = c8.display.Screen;
 const Devices = c8.Devices;
 const Rom = c8.rom.Rom;
 const Config = @import("Config.zig");
-
-const TIME_BETWEEN_ROMS = 5;
 
 pub const std_options = .{
     .log_level = .info,
@@ -83,10 +82,20 @@ pub fn mainLoop(dev: *Devices) !void {
         "roms/1-chip8-logo.ch8",
         "roms/2-ibm-logo-test.ch8",
         "roms/3-corax+.ch8",
+        "roms/4-flags.ch8",
     };
-    var rom_times_idx: usize = 0;
-    const rom_times: [3]i64 = .{ 3, 3, 3 };
-    var rom = try c8.rom.Rom.read(rom_paths[0]);
+
+    var rom: Rom = undefined;
+
+    if (options.test_number != 0) {
+        if (options.test_number > rom_paths.len) {
+            return error.TestDoesNotExist;
+        }
+        rom = try c8.rom.Rom.read(rom_paths[options.test_number - 1]);
+    } else {
+        rom = try c8.rom.Rom.read(rom_paths[0]);
+    }
+
     rom.load(&dev.ram);
 
     var cycles = Cycle{
@@ -97,7 +106,7 @@ pub fn mainLoop(dev: *Devices) !void {
     cycles.prev_time_s = cycles.curr_time_s;
     cycles.delta_time_s = cycles.curr_time_s - cycles.prev_time_s;
 
-    _ = totalTime(rom_times[0]);
+    _ = totalTime(options.test_time);
     while (!c8.display.windowShouldClose()) : ({
         cycles.total +%= 1;
         cycles.delta_time_s = cycles.curr_time_s - cycles.prev_time_s;
@@ -126,7 +135,10 @@ pub fn mainLoop(dev: *Devices) !void {
 
         c8.timing.waitTime(Config.cpu_delay_s);
 
-        if (totalTime(rom_times[rom_times_idx]) > rom_times[rom_times_idx]) {
+        if (totalTime(options.test_time) > options.test_time) {
+            if (options.test_number != 0) {
+                break;
+            }
             if (rom_idx >= rom_paths.len) {
                 break; // no more roms to run
             }
@@ -134,7 +146,6 @@ pub fn mainLoop(dev: *Devices) !void {
             c8.font.setFont(&dev.ram, &c8.font.font_chars);
             rom = try changeRom(&rom, rom_paths[rom_idx], &dev.ram);
             rom_idx += 1;
-            rom_times_idx += 1;
         }
     }
 }

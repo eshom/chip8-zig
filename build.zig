@@ -75,9 +75,10 @@ pub fn build(b: *std.Build) void {
         chip8: *std.Build.Module,
         target: std.Build.ResolvedTarget,
         optimize: std.builtin.OptimizeMode,
+        options: ?*std.Build.Step.Options = null,
     };
 
-    const test_sound_timer_step = testProg(b, TestAppStepOptions{
+    const test_sound_timer = testProg(b, TestAppStepOptions{
         .main_source = b.path("test/sound_timer/main.zig"),
         .step_name = "test-sound-timer",
         .step_desc = "Sound timer test",
@@ -85,8 +86,9 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    _ = test_sound_timer;
 
-    const test_display_step = testProg(b, TestAppStepOptions{
+    const test_display = testProg(b, TestAppStepOptions{
         .main_source = b.path("test/display/main.zig"),
         .step_name = "test-display",
         .step_desc = "Display test",
@@ -94,35 +96,28 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    _ = test_display;
 
-    const test_ibm_step = testProg(b, TestAppStepOptions{
-        .main_source = b.path("test/ibm/main.zig"),
-        .step_name = "test-ibm",
-        .step_desc = "IBM logo test",
+    // TODO: Add option to also control test time
+    const test_number = b.option(usize, "test-number", "Run only specific test from test suite") orelse 0;
+    const test_time = b.option(usize, "test-time", "Run each test suite for this amount of time") orelse 3;
+    const test_suite_opts = b.addOptions();
+    test_suite_opts.addOption(usize, "test_number", test_number);
+    test_suite_opts.addOption(usize, "test_time", test_time);
+
+    const test_suite = testProg(b, TestAppStepOptions{
+        .main_source = b.path("test/test-suite/main.zig"),
+        .step_name = "test-suite",
+        .step_desc = "Run Timendius' chip8 test suite",
         .chip8 = _exe,
         .target = target,
         .optimize = optimize,
+        .options = test_suite_opts,
     });
-
-    const test_corax_step = testProg(b, TestAppStepOptions{
-        .main_source = b.path("test/corax+/main.zig"),
-        .step_name = "test-corax",
-        .step_desc = "Corax+ opcodes test",
-        .chip8 = _exe,
-        .target = target,
-        .optimize = optimize,
-    });
-
-    // TODO: Make the execution order not random somehow, but not duplicate steps.
-    // For the test suite at least make it run in order
-    const test_all = b.step("test-all", "Run all test apps one by one");
-    test_all.dependOn(test_sound_timer_step);
-    test_all.dependOn(test_display_step);
-    test_all.dependOn(test_ibm_step);
-    test_all.dependOn(test_corax_step);
+    _ = test_suite;
 }
 
-fn testProg(b: *std.Build, opt: anytype) *std.Build.Step {
+fn testProg(b: *std.Build, opt: anytype) *std.Build.Step.Run {
     const test_prog = b.addExecutable(.{
         .name = "chip8-zig",
         .root_source_file = opt.main_source,
@@ -134,6 +129,9 @@ fn testProg(b: *std.Build, opt: anytype) *std.Build.Step {
     test_prog.addLibraryPath(b.path("vendor/raylib/src"));
     test_prog.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
     test_prog.root_module.addImport("chip8", opt.chip8);
+    if (opt.options) |o| {
+        test_prog.root_module.addOptions("options", o);
+    }
     const test_prog_runner = b.addRunArtifact(test_prog);
     test_prog_runner.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
@@ -143,5 +141,5 @@ fn testProg(b: *std.Build, opt: anytype) *std.Build.Step {
     const out_step = b.step(opt.step_name, opt.step_desc);
     out_step.dependOn(&test_prog_runner.step);
 
-    return out_step;
+    return test_prog_runner;
 }
