@@ -17,6 +17,18 @@ pub const Devices = struct {
     screen: display.Screen = .{.{0} ** display.HEIGHT} ** display.WIDTH,
     delay_timer: timing.DelayTimer = .{},
     sound_timer: timing.SoundTimer = .{},
+
+    pub fn reset(self: *Devices) void {
+        self.pc = inst.ProgramCounter{};
+        @memset(&self.ram, 0); // fonts need to be reloaded
+        self.stack = memory.Stack(Config.stack_size){};
+        self.reg = memory.Reg{};
+        for (&self.screen) |*row| {
+            @memset(row, 0);
+        }
+        self.delay_timer = timing.DelayTimer{};
+        self.sound_timer = timing.SoundTimer{};
+    }
 };
 
 pub const ProgramError = error{

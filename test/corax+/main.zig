@@ -16,7 +16,10 @@ const Memory = c8.memory.Memory;
 const Reg = c8.memory.Reg;
 const Screen = c8.display.Screen;
 const Devices = c8.Devices;
+const Rom = c8.rom.Rom;
 const Config = @import("Config.zig");
+
+const TIME_BETWEEN_ROMS = 5;
 
 pub const std_options = .{
     .log_level = .info,
@@ -37,24 +40,54 @@ fn exitTime(t: i64) void {
     }
 }
 
+fn totalTime(t: i64) i64 {
+    const timer = struct {
+        var start: i64 = -1;
+    };
+
+    if (timer.start == -1) {
+        timer.start = time.timestamp();
+        return 0;
+    }
+
+    const delta = time.timestamp() - timer.start;
+
+    if (delta > t) {
+        timer.start = time.timestamp();
+    }
+
+    return delta;
+}
+
+fn changeRom(rom: *const Rom, rompath: []const u8, memo: *Memory) !Rom {
+    rom.unload(memo);
+    const new_rom = try Rom.read(rompath);
+    new_rom.load(memo);
+    return new_rom;
+}
+
 pub fn main() !void {
     c8.raylib.setLogLevel(.log_error);
     var dev: Devices = .{};
-
-    var _fba = heap.FixedBufferAllocator.init(dev.ram[c8.memory.PROGRAM_START..]);
-    const fba = _fba.allocator();
-
     c8.font.setFont(&dev.ram, &c8.font.font_chars);
 
-    const rom = try c8.rom.Rom.read(Config.rom_file);
-    rom.load(&dev.ram);
-    try mainLoop(fba, &dev);
+    try mainLoop(&dev);
 }
 
-pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
-    _ = ally;
+pub fn mainLoop(dev: *Devices) !void {
     c8.display.initWindow("CHIP-8", .{ .scale = Config.scale });
     defer c8.display.closeWindow();
+
+    var rom_idx: usize = 1;
+    const rom_paths: []const []const u8 = &.{
+        "roms/1-chip8-logo.ch8",
+        "roms/2-ibm-logo-test.ch8",
+        "roms/3-corax+.ch8",
+    };
+    var rom_times_idx: usize = 0;
+    const rom_times: [3]i64 = .{ 3, 3, 3 };
+    var rom = try c8.rom.Rom.read(rom_paths[0]);
+    rom.load(&dev.ram);
 
     var cycles = Cycle{
         .curr_time_s = c8.timing.getTime(),
@@ -64,6 +97,7 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
     cycles.prev_time_s = cycles.curr_time_s;
     cycles.delta_time_s = cycles.curr_time_s - cycles.prev_time_s;
 
+    _ = totalTime(rom_times[0]);
     while (!c8.display.windowShouldClose()) : ({
         cycles.total +%= 1;
         cycles.delta_time_s = cycles.curr_time_s - cycles.prev_time_s;
@@ -91,6 +125,16 @@ pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
         }
 
         c8.timing.waitTime(Config.cpu_delay_s);
-        exitTime(10);
+
+        if (totalTime(rom_times[rom_times_idx]) > rom_times[rom_times_idx]) {
+            if (rom_idx >= rom_paths.len) {
+                break; // no more roms to run
+            }
+            dev.reset();
+            c8.font.setFont(&dev.ram, &c8.font.font_chars);
+            rom = try changeRom(&rom, rom_paths[rom_idx], &dev.ram);
+            rom_idx += 1;
+            rom_times_idx += 1;
+        }
     }
 }
