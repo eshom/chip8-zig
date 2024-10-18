@@ -380,7 +380,7 @@ fn subYX(reg_x: u4, reg_y: u4, dev: *Devices) void {
 
 fn shrXY(reg_x: u4, reg_y: u4, dev: *Devices, orig: bool) void {
     dev.reg.v[reg_x] = if (orig) dev.reg.v[reg_y] else dev.reg.v[reg_x];
-    const least_bit: u1 = @truncate(0 & dev.reg.v[reg_x]);
+    const least_bit: u1 = @truncate(dev.reg.v[reg_x]);
     dev.reg.v[reg_x] >>= 1;
     dev.reg.v[0xf] = least_bit;
 }
