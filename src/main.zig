@@ -24,22 +24,12 @@ pub const std_options = .{
 
 pub fn main() !void {
     c8.raylib.setLogLevel(.log_error);
-    var dev: Devices = .{};
-
-    // TODO: Do I need an allocator? If so it must not override font area and rom
-    var _fba = heap.FixedBufferAllocator.init(dev.ram[c8.memory.PROGRAM_START..]);
-    const fba = _fba.allocator();
-
-    c8.font.setFont(&dev.ram, &c8.font.font_chars);
-
-    const rom = try c8.rom.Rom.read(c8.Config.rom_file);
-    rom.load(&dev.ram);
-    try mainLoop(fba, &dev);
+    var dev: Devices = Devices.init();
+    try dev.loadRom(c8.Config.rom_file);
+    try mainLoop(&dev);
 }
 
-pub fn mainLoop(ally: Allocator, dev: *Devices) !void {
-    _ = ally;
-
+pub fn mainLoop(dev: *Devices) !void {
     c8.display.initWindow("CHIP-8", .{ .scale = Config.scale });
     defer c8.display.closeWindow();
 

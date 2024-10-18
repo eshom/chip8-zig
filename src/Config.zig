@@ -2,7 +2,7 @@ const c8 = @import("chip8.zig");
 
 // Memory
 pub const stack_size = 100;
-pub const rom_file = "roms/ibm-logo-test.ch8";
+pub const rom_file = "roms/2-ibm-logo-test.ch8";
 
 // Display
 pub const bg_color: c8.raylib.rl.Color = .{ .r = 0, .g = 0, .b = 0, .a = 255 };

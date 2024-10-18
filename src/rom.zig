@@ -66,7 +66,7 @@ test "read rom" {
     };
     // zig fmt: on
 
-    const rom = try Rom.read("roms/ibm-logo-test.ch8");
+    const rom = try Rom.read("roms/2-ibm-logo-test.ch8");
     try std.testing.expectEqualSlices(u8, &expected, rom.bytes);
 }
 

@@ -17,6 +17,7 @@ pub const Devices = struct {
     screen: display.Screen = .{.{0} ** display.HEIGHT} ** display.WIDTH,
     delay_timer: timing.DelayTimer = .{},
     sound_timer: timing.SoundTimer = .{},
+    rom: ?rom.Rom = null,
 
     pub fn reset(self: *Devices) void {
         self.pc = inst.ProgramCounter{};
@@ -29,11 +30,33 @@ pub const Devices = struct {
         self.delay_timer = timing.DelayTimer{};
         self.sound_timer = timing.SoundTimer{};
     }
+
+    pub fn loadFont(self: *Devices) void {
+        font.setFont(&self.ram, &font.font_chars);
+    }
+
+    pub fn init() Devices {
+        var out = Devices{};
+        out.loadFont();
+        return out;
+    }
+
+    pub fn loadRom(self: *Devices, rompath: []const u8) !void {
+        if (self.rom) |_| {
+            return DeviceError.RomAlreadyLoaded;
+        }
+        const out = try rom.Rom.read(rompath);
+        out.load(&self.ram);
+    }
 };
 
 pub const ProgramError = error{
     UnexpectedProgramEnd,
     RomTooBig,
+};
+
+pub const DeviceError = error{
+    RomAlreadyLoaded,
 };
 
 test {
