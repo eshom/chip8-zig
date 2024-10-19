@@ -7,8 +7,12 @@ pub const input = @import("input.zig");
 pub const inst = @import("inst.zig");
 pub const rom = @import("rom.zig");
 
+const std = @import("std");
+
 pub const Config = @import("Config.zig");
 
+/// RNG is undefined until `.init` is called for the first time
+/// So don't create this without `.init`
 pub const Devices = struct {
     pc: inst.ProgramCounter = .{},
     ram: memory.Memory = .{0} ** memory.TOTAL_MEM,
@@ -18,6 +22,9 @@ pub const Devices = struct {
     delay_timer: timing.DelayTimer = .{},
     sound_timer: timing.SoundTimer = .{},
     rom: ?rom.Rom = null,
+    rng: std.Random = rng_algo.random(),
+
+    var rng_algo: std.Random.DefaultPrng = undefined;
 
     pub fn reset(self: *Devices) void {
         self.pc = inst.ProgramCounter{};
@@ -36,6 +43,7 @@ pub const Devices = struct {
     }
 
     pub fn init() Devices {
+        Devices.rng_algo = std.Random.DefaultPrng.init(@intCast(std.time.microTimestamp()));
         var out = Devices{};
         out.loadFont();
         return out;

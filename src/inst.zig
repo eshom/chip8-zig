@@ -58,6 +58,7 @@ pub const Inst = packed struct(u16) {
             0x9 => skipNotEqXY(self.nb2, self.nb3, dev),
             0xa => setI(lower_three, dev),
             0xb => jumpv0(lower_three, dev, Config.original_b_jump),
+            0xc => random(self.nb2, lower_byte, dev),
             0xd => displayI(self.nb2, self.nb3, self.nb4, dev),
             0xf => switch (self.nb3) {
                 0x1 => switch (self.nb4) {
@@ -453,4 +454,43 @@ test "execute jumpv0 instruction" {
     try testing.expectEqual(0xff, dev.reg.v[0x3]);
     (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0x300 + 0xff, dev.pc.addr);
+}
+
+fn random(reg_x: u4, nn: u8, dev: *Devices) void {
+    dev.reg.v[reg_x] = nn & dev.rng.int(u8);
+}
+
+test "execute the random instruction" {
+    var dev: Devices = Devices.init();
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
+    dev.ram[dev.pc.addr + 0] = 0xc0;
+    dev.ram[dev.pc.addr + 1] = 0b1111_1110;
+    dev.ram[dev.pc.addr + 2] = 0xc1;
+    dev.ram[dev.pc.addr + 3] = 0b1111_1100;
+    dev.ram[dev.pc.addr + 4] = 0xc2;
+    dev.ram[dev.pc.addr + 5] = 0b1111_1000;
+    dev.ram[dev.pc.addr + 6] = 0xc3;
+    dev.ram[dev.pc.addr + 7] = 0b1111_0000;
+    dev.ram[dev.pc.addr + 8] = 0xc4;
+    dev.ram[dev.pc.addr + 9] = 0b1110_0000;
+    dev.ram[dev.pc.addr + 10] = 0xc5;
+    dev.ram[dev.pc.addr + 11] = 0b1100_0000;
+    dev.ram[dev.pc.addr + 12] = 0xc6;
+    dev.ram[dev.pc.addr + 13] = 0b1000_0000;
+    dev.ram[dev.pc.addr + 14] = 0xc7;
+    dev.ram[dev.pc.addr + 15] = 0b0000_0000;
+
+    for (0..8) |_| {
+        const inst = try dev.pc.fetch(&dev.ram);
+        inst.decode(&dev);
+    }
+
+    try testing.expectEqual(0b0, @as(u1, @truncate(dev.reg.v[0x0])));
+    try testing.expectEqual(0b00, @as(u2, @truncate(dev.reg.v[0x1])));
+    try testing.expectEqual(0b000, @as(u3, @truncate(dev.reg.v[0x2])));
+    try testing.expectEqual(0b0000, @as(u4, @truncate(dev.reg.v[0x3])));
+    try testing.expectEqual(0b0000_0, @as(u5, @truncate(dev.reg.v[0x4])));
+    try testing.expectEqual(0b0000_00, @as(u6, @truncate(dev.reg.v[0x5])));
+    try testing.expectEqual(0b0000_000, @as(u7, @truncate(dev.reg.v[0x6])));
+    try testing.expectEqual(0b0000_0000, dev.reg.v[0x7]);
 }
