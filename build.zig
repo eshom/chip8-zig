@@ -51,6 +51,7 @@ pub fn build(b: *std.Build) void {
     exe_unit_tests.addLibraryPath(b.path("vendor/raylib/src"));
     exe_unit_tests.addObjectFile(b.path("vendor/raylib/src/libraylib.a"));
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    run_exe_unit_tests.has_side_effects = true;
     check.dependOn(&exe_unit_tests.step);
 
     const test_step = b.step("test", "Run unit tests");

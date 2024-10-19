@@ -10,9 +10,12 @@ pub const scale = 16;
 
 // CPU
 pub const cpu_delay_s = 0.0012; // Goal is 700 instructions per second
+
+// Quirks
 pub const original_bitshift = true;
 pub const original_memory_load_store = false;
 pub const flag_index_register_overflow = false;
+pub const original_b_jump = true;
 
 // Debug
 pub const debug_timings_print_cycle = 100;

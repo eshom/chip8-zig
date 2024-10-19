@@ -57,7 +57,7 @@ pub const Inst = packed struct(u16) {
             },
             0x9 => skipNotEqXY(self.nb2, self.nb3, dev),
             0xa => setI(lower_three, dev),
-            0xb => jumpv0(lower_three, dev),
+            0xb => jumpv0(lower_three, dev, Config.original_b_jump),
             0xd => displayI(self.nb2, self.nb3, self.nb4, dev),
             0xf => switch (self.nb3) {
                 0x1 => switch (self.nb4) {
@@ -421,8 +421,15 @@ fn addI(reg_x: u4, dev: *Devices, set_overflow_flag: bool) void {
     dev.reg.i = sum;
 }
 
-fn jumpv0(addr: Addr, dev: *Devices) void {
-    dev.pc.addr = addr + dev.reg.v[0x0];
+fn jumpv0(addr: Addr, dev: *Devices, orig: bool) void {
+    if (orig) {
+        dev.pc.addr = addr + dev.reg.v[0x0];
+        return;
+    } else {
+        const reg: u4 = @truncate(addr >> 8);
+        dev.pc.addr = addr + dev.reg.v[reg];
+        return;
+    }
 }
 
 test "execute jumpv0 instruction" {
@@ -432,14 +439,18 @@ test "execute jumpv0 instruction" {
     dev.ram[dev.pc.addr + 1] = 0x00;
     dev.ram[0x300] = 0x60;
     dev.ram[0x301] = 0xff;
-    dev.ram[0x302] = 0xb3;
-    dev.ram[0x303] = 0x00;
+    dev.ram[0x302] = 0x63; // for quirk compatibility
+    dev.ram[0x303] = 0xff;
+    dev.ram[0x304] = 0xb3;
+    dev.ram[0x305] = 0x00;
 
     (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0x300, dev.pc.addr);
     try testing.expectEqual(0x00, dev.reg.v[0x0]);
     (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0xff, dev.reg.v[0x0]);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    try testing.expectEqual(0xff, dev.reg.v[0x3]);
     (try dev.pc.fetch(&dev.ram)).decode(&dev);
     try testing.expectEqual(0x300 + 0xff, dev.pc.addr);
 }
