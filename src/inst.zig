@@ -57,6 +57,7 @@ pub const Inst = packed struct(u16) {
             },
             0x9 => skipNotEqXY(self.nb2, self.nb3, dev),
             0xa => setI(lower_three, dev),
+            0xb => jumpv0(lower_three, dev),
             0xd => displayI(self.nb2, self.nb3, self.nb4, dev),
             0xf => switch (self.nb3) {
                 0x1 => switch (self.nb4) {
@@ -418,4 +419,27 @@ fn addI(reg_x: u4, dev: *Devices, set_overflow_flag: bool) void {
     const sum, const carry = @addWithOverflow(@as(u12, dev.reg.v[reg_x]), dev.reg.i);
     dev.reg.v[0xf] = if (set_overflow_flag) carry else dev.reg.v[0xf];
     dev.reg.i = sum;
+}
+
+fn jumpv0(addr: Addr, dev: *Devices) void {
+    dev.pc.addr = addr + dev.reg.v[0x0];
+}
+
+test "execute jumpv0 instruction" {
+    var dev: Devices = Devices.init();
+    debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
+    dev.ram[dev.pc.addr] = 0xb3;
+    dev.ram[dev.pc.addr + 1] = 0x00;
+    dev.ram[0x300] = 0x60;
+    dev.ram[0x301] = 0xff;
+    dev.ram[0x302] = 0xb3;
+    dev.ram[0x303] = 0x00;
+
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    try testing.expectEqual(0x300, dev.pc.addr);
+    try testing.expectEqual(0x00, dev.reg.v[0x0]);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    try testing.expectEqual(0xff, dev.reg.v[0x0]);
+    (try dev.pc.fetch(&dev.ram)).decode(&dev);
+    try testing.expectEqual(0x300 + 0xff, dev.pc.addr);
 }

@@ -83,6 +83,7 @@ pub fn mainLoop(dev: *Devices) !void {
         "roms/2-ibm-logo-test.ch8",
         "roms/3-corax+.ch8",
         "roms/4-flags.ch8",
+        "roms/5-quirks.ch8",
     };
 
     var rom: Rom = undefined;
@@ -146,6 +147,9 @@ pub fn mainLoop(dev: *Devices) !void {
             c8.font.setFont(&dev.ram, &c8.font.font_chars);
             rom = try changeRom(&rom, rom_paths[rom_idx], &dev.ram);
             rom_idx += 1;
+            if (rom_idx == 4) {
+                dev.ram[0x1ff] = 1; // quirks test choice CHIP-8
+            }
         }
     }
 }
