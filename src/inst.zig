@@ -461,7 +461,10 @@ fn random(reg_x: u4, nn: u8, dev: *Devices) void {
 }
 
 test "execute the random instruction" {
+    var seeded = std.Random.DefaultPrng.init(0); // make test predictable with fixed seed
     var dev: Devices = Devices.init();
+    dev.rng = seeded.random();
+
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr + 0] = 0xc0;
     dev.ram[dev.pc.addr + 1] = 0b1111_1110;
@@ -480,11 +483,17 @@ test "execute the random instruction" {
     dev.ram[dev.pc.addr + 14] = 0xc7;
     dev.ram[dev.pc.addr + 15] = 0b0000_0000;
 
+    dev.ram[dev.pc.addr + 16] = 0xc8;
+    dev.ram[dev.pc.addr + 17] = 0b1111_1111;
+    dev.ram[dev.pc.addr + 18] = 0x12;
+    dev.ram[dev.pc.addr + 19] = 0x10;
+
     for (0..8) |_| {
         const inst = try dev.pc.fetch(&dev.ram);
         inst.decode(&dev);
     }
 
+    // mask test
     try testing.expectEqual(0b0, @as(u1, @truncate(dev.reg.v[0x0])));
     try testing.expectEqual(0b00, @as(u2, @truncate(dev.reg.v[0x1])));
     try testing.expectEqual(0b000, @as(u3, @truncate(dev.reg.v[0x2])));
@@ -493,4 +502,66 @@ test "execute the random instruction" {
     try testing.expectEqual(0b0000_00, @as(u6, @truncate(dev.reg.v[0x5])));
     try testing.expectEqual(0b0000_000, @as(u7, @truncate(dev.reg.v[0x6])));
     try testing.expectEqual(0b0000_0000, dev.reg.v[0x7]);
+
+    // all bits get unset by rng
+    var res: u8 = 0b1111_1111;
+    var iter: usize = 0;
+    for (0..255) |_| {
+        defer iter += 1;
+        const inst = try dev.pc.fetch(&dev.ram);
+        inst.decode(&dev);
+        res &= dev.reg.v[0x8];
+        if (res == 0b0000_0000) {
+            break; // success!
+        }
+    } else {
+        return error.TestExpectedBitsZero;
+    }
+    debug.print("RNG test1 iterations until passed: {d}\n", .{iter});
+
+    dev.ram[dev.pc.addr] = 0x13;
+    dev.ram[dev.pc.addr + 1] = 0x00;
+    dev.ram[0x300] = 0xc9;
+    dev.ram[0x301] = 0b1111_1111;
+    dev.ram[0x302] = 0x13;
+    dev.ram[0x303] = 0x00;
+
+    // all bits get set by rng
+    res = 0b0000_0000;
+    iter = 0;
+    for (0..255) |_| {
+        defer iter += 1;
+        const inst = try dev.pc.fetch(&dev.ram);
+        inst.decode(&dev);
+        res |= dev.reg.v[0x9];
+        if (res == 0b1111_1111) {
+            break; // success!
+        }
+    } else {
+        return error.TestExpectedBitsOne;
+    }
+    debug.print("RNG test2 iterations until passed: {d}\n", .{iter});
+
+    dev.ram[dev.pc.addr] = 0x14;
+    dev.ram[dev.pc.addr + 1] = 0x00;
+    dev.ram[0x400] = 0xca;
+    dev.ram[0x401] = 0b1010_1010;
+    dev.ram[0x402] = 0x14;
+    dev.ram[0x403] = 0x00;
+
+    // all bits get set to mask value by rng
+    res = 0b0000_0000;
+    iter = 0;
+    for (0..255) |_| {
+        defer iter += 1;
+        const inst = try dev.pc.fetch(&dev.ram);
+        inst.decode(&dev);
+        res |= dev.reg.v[0xa];
+        if (res == 0b1010_1010) {
+            break; // success!
+        }
+    } else {
+        return error.TestExpectedBitsMask;
+    }
+    debug.print("RNG test3 iterations until passed: {d}\n", .{iter});
 }
