@@ -8,20 +8,13 @@ const math = std.math;
 const c8 = @import("chip8");
 const options = @import("options");
 
-const Allocator = std.mem.Allocator;
-const Cycle = c8.timing.Cycle;
-const DelayTimer = c8.timing.DelayTimer;
-const SoundTimer = c8.timing.SoundTimer;
-const ProgramCounter = c8.inst.ProgramCounter;
 const Memory = c8.memory.Memory;
-const Reg = c8.memory.Reg;
-const Screen = c8.display.Screen;
 const Devices = c8.Devices;
 const Rom = c8.rom.Rom;
 const Config = @import("Config.zig");
 
 pub const std_options = .{
-    .log_level = .info,
+    .log_level = .debug,
 };
 
 fn exitTime(t: i64) void {
@@ -67,9 +60,7 @@ fn changeRom(rom: *const Rom, rompath: []const u8, memo: *Memory) !Rom {
 
 pub fn main() !void {
     c8.raylib.setLogLevel(.log_error);
-    var dev: Devices = .{};
-    c8.font.setFont(&dev.ram, &c8.font.font_chars);
-
+    var dev: Devices = Devices.init();
     try mainLoop(&dev);
 }
 
@@ -84,6 +75,7 @@ pub fn mainLoop(dev: *Devices) !void {
         "roms/3-corax+.ch8",
         "roms/4-flags.ch8",
         "roms/5-quirks.ch8",
+        "roms/6-keypad.ch8",
     };
 
     var rom: Rom = undefined;
@@ -99,24 +91,8 @@ pub fn mainLoop(dev: *Devices) !void {
 
     rom.load(&dev.ram);
 
-    var cycles = Cycle{
-        .curr_time_s = c8.timing.getTime(),
-        .prev_time_s = undefined,
-        .delta_time_s = undefined,
-    };
-    cycles.prev_time_s = cycles.curr_time_s;
-    cycles.delta_time_s = cycles.curr_time_s - cycles.prev_time_s;
-
     _ = totalTime(options.test_time);
-    while (!c8.display.windowShouldClose()) : ({
-        cycles.total +%= 1;
-        cycles.delta_time_s = cycles.curr_time_s - cycles.prev_time_s;
-        cycles.prev_time_s = cycles.curr_time_s;
-        cycles.curr_time_s = c8.timing.getTime();
-        cycles.time_since_draw_s += cycles.delta_time_s;
-        if (dev.delay_timer.timer != 0) dev.delay_timer.last_tick_s += cycles.delta_time_s;
-        if (dev.sound_timer.timer != 0) dev.sound_timer.last_tick_s += cycles.delta_time_s;
-    }) {
+    while (!c8.display.windowShouldClose()) : (dev.tick()) {
         c8.input.pollInputEvents();
 
         // Fetch instruction and execute
@@ -124,17 +100,19 @@ pub fn mainLoop(dev: *Devices) !void {
         inst.decode(dev);
 
         // Drawing happens here at 60 FPS (by default)
-        if (cycles.time_since_draw_s > 1 / cycles.target_fps) {
+        if (dev.clock.time_since_draw_s > 1 / dev.clock.target_fps) {
             c8.display.beginDrawing();
             c8.display.clearBackground(Config.bg_color);
             c8.display.drawScreen(&dev.screen, Config.scale, c8.raylib.rl.RAYWHITE);
             c8.display.endDrawing();
             c8.display.swapScreenBuffer();
-            cycles.last_draw_delta_s = cycles.time_since_draw_s;
-            cycles.time_since_draw_s = 0;
+            dev.clock.last_draw_delta_s = dev.clock.time_since_draw_s;
+            dev.clock.time_since_draw_s = 0;
         }
 
         c8.timing.waitTime(Config.cpu_delay_s);
+
+        log.debug("delay timer: {d}", .{dev.delay_timer.timer});
 
         if (totalTime(options.test_time) > options.test_time) {
             if (options.test_number != 0) {
@@ -147,9 +125,9 @@ pub fn mainLoop(dev: *Devices) !void {
             c8.font.setFont(&dev.ram, &c8.font.font_chars);
             rom = try changeRom(&rom, rom_paths[rom_idx], &dev.ram);
             rom_idx += 1;
-            if (rom_idx == 4) {
-                dev.ram[0x1ff] = 1; // quirks test choice CHIP-8
-            }
+            // if (rom_idx == 4) {
+            //     dev.ram[0x1ff] = 1; // quirks test choice CHIP-8
+            // }
         }
     }
 }

@@ -11,6 +11,16 @@ const std = @import("std");
 
 pub const Config = @import("Config.zig");
 
+pub const Clock = struct {
+    total: u64 = 0,
+    target_fps: f64 = 60,
+    curr_time_s: f64,
+    prev_time_s: f64,
+    delta_time_s: f64,
+    time_since_draw_s: f64 = 0,
+    last_draw_delta_s: f64 = 0,
+};
+
 /// RNG is undefined until `.init` is called for the first time
 /// So don't create this without `.init`
 pub const Devices = struct {
@@ -23,6 +33,7 @@ pub const Devices = struct {
     sound_timer: timing.SoundTimer = .{},
     rom: ?rom.Rom = null,
     rng: std.Random = rng_algo.random(),
+    clock: Clock,
 
     var rng_algo: std.Random.DefaultPrng = undefined;
 
@@ -44,7 +55,15 @@ pub const Devices = struct {
 
     pub fn init() Devices {
         Devices.rng_algo = std.Random.DefaultPrng.init(@intCast(std.time.microTimestamp()));
-        var out = Devices{};
+        var out = Devices{
+            .clock = Clock{
+                .curr_time_s = timing.getTime(),
+                .prev_time_s = undefined,
+                .delta_time_s = undefined,
+            },
+        };
+        out.clock.prev_time_s = out.clock.curr_time_s;
+        out.clock.delta_time_s = out.clock.curr_time_s - out.clock.prev_time_s;
         out.loadFont();
         return out;
     }
@@ -55,6 +74,19 @@ pub const Devices = struct {
         }
         const out = try rom.Rom.read(rompath);
         out.load(&self.ram);
+    }
+
+    pub fn tick(self: *Devices) void {
+        self.clock.total +%= 1;
+        self.clock.delta_time_s = self.clock.curr_time_s - self.clock.prev_time_s;
+        self.clock.prev_time_s = self.clock.curr_time_s;
+        self.clock.curr_time_s = timing.getTime();
+        if (self.delay_timer.timer != 0) {
+            self.delay_timer.last_tick_s += self.clock.delta_time_s;
+        }
+        if (self.sound_timer.timer != 0) {
+            self.sound_timer.last_tick_s += self.clock.delta_time_s;
+        }
     }
 };
 

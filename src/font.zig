@@ -30,6 +30,25 @@ pub const font_chars = [FONT_MEM_LEN]u8{
     0xf0, 0x80, 0xf0, 0x80, 0x80, // F
 };
 
+pub const char_map: [16]u12 = .{
+    FONT_START, // 0
+    FONT_START + 5,
+    FONT_START + 10,
+    FONT_START + 15,
+    FONT_START + 20,
+    FONT_START + 25,
+    FONT_START + 30,
+    FONT_START + 35,
+    FONT_START + 40,
+    FONT_START + 45,
+    FONT_START + 50, // a
+    FONT_START + 55,
+    FONT_START + 60,
+    FONT_START + 65,
+    FONT_START + 70,
+    FONT_START + 75, // f
+};
+
 pub fn setFont(ram: *Memory, charset: []const u8) void {
     debug.assert(ram.len == c8.memory.TOTAL_MEM);
     const font_space = ram[FONT_START..FONT_END];

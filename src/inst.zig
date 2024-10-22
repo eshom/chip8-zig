@@ -12,6 +12,7 @@ const Memory = c8.memory.Memory;
 const Screen = c8.display.Screen;
 const Devices = c8.Devices;
 const Reg = c8.memory.Reg;
+const Keypad = c8.input.Keypad;
 const Config = @import("Config.zig");
 
 pub const Inst = packed struct(u16) {
@@ -60,17 +61,29 @@ pub const Inst = packed struct(u16) {
             0xb => jumpv0(lower_three, dev, Config.original_b_jump),
             0xc => random(self.nb2, lower_byte, dev),
             0xd => displayI(self.nb2, self.nb3, self.nb4, dev),
+            0xe => switch (self.nb3) {
+                0x9 => skipIfKey(self.nb2, dev),
+                0xa => skipIfNotKey(self.nb2, dev),
+                else => noop(),
+            },
             0xf => switch (self.nb3) {
+                0x0 => switch (self.nb4) {
+                    0x7 => getDelayTimer(self.nb2, dev),
+                    0xa => getKey(self.nb2, dev, Config.original_get_key_upon_release),
+                    else => noop(),
+                },
                 0x1 => switch (self.nb4) {
+                    0x5 => setDelayTimer(self.nb2, dev),
+                    0x8 => setSoundTimer(self.nb2, dev),
                     0xe => addI(self.nb2, dev, Config.flag_index_register_overflow),
                     else => noop(),
                 },
+                0x2 => setIFontChar(self.nb2, dev),
                 0x3 => bcdc(self.nb2, dev),
                 0x5 => memStore(self.nb2, dev, Config.original_memory_load_store),
                 0x6 => memLoad(self.nb2, dev, Config.original_memory_load_store),
                 else => noop(),
             },
-            else => noop(),
         }
     }
 };
@@ -89,7 +102,7 @@ pub const ProgramCounter = struct {
 };
 
 test "ProgramCounter.fetch" {
-    var dev: Devices = .{};
+    var dev: Devices = Devices.init();
 
     dev.ram[c8.memory.PROGRAM_START] = 0xf0;
     dev.ram[c8.memory.PROGRAM_START + 1] = 0x0a;
@@ -117,7 +130,7 @@ fn jump(addr: Addr, dev: *Devices) void {
 }
 
 test "execute jump instruction" {
-    var dev: Devices = .{};
+    var dev: Devices = Devices.init();
 
     dev.ram[c8.memory.PROGRAM_START] = 0x12;
     dev.ram[c8.memory.PROGRAM_START + 1] = 0x03;
@@ -139,7 +152,7 @@ fn call(addr: Addr, dev: *Devices) void {
 }
 
 test "execute call instruction" {
-    var dev: Devices = .{};
+    var dev: Devices = Devices.init();
 
     dev.ram[c8.memory.PROGRAM_START] = 0x22;
     dev.ram[c8.memory.PROGRAM_START + 1] = 0x05;
@@ -162,7 +175,7 @@ fn ret(dev: *Devices) void {
 }
 
 test "execute ret instruction" {
-    var dev: Devices = .{};
+    var dev: Devices = Devices.init();
     dev.ram[c8.memory.PROGRAM_START] = 0x22;
     dev.ram[c8.memory.PROGRAM_START + 1] = 0x05;
     dev.ram[0x205] = 0x00;
@@ -182,7 +195,7 @@ fn setX(dest_reg: u4, value: u8, dev: *Devices) void {
 }
 
 test "execute set instruction" {
-    var dev: Devices = .{};
+    var dev: Devices = Devices.init();
     dev.ram[c8.memory.PROGRAM_START] = 0x64;
     dev.ram[c8.memory.PROGRAM_START + 1] = 0x33;
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
@@ -195,7 +208,7 @@ fn addX(dest_reg: u4, value: u8, dev: *Devices) void {
 }
 
 test "execute add instruction" {
-    var dev: Devices = .{};
+    var dev: Devices = Devices.init();
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr] = 0x65;
     dev.ram[dev.pc.addr + 1] = 0x33;
@@ -216,7 +229,7 @@ fn setI(value: Addr, dev: *Devices) void {
 }
 
 test "execute setI instruction" {
-    var dev: Devices = .{};
+    var dev: Devices = Devices.init();
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr] = 0xa2;
     dev.ram[dev.pc.addr + 1] = 0x00;
@@ -245,7 +258,7 @@ fn displayI(reg_x: u4, reg_y: u4, rows: u4, dev: *Devices) void {
         }
         // TODO: Overflow check maybe
         const sprite_byte = dev.ram[dev.reg.i + row];
-        log.debug("sprite = {b:0>8}", .{sprite_byte});
+        // log.debug("sprite = {b:0>8}", .{sprite_byte});
         var idx: i4 = 7;
         const pos_x_orig = pos_x;
         defer pos_x = pos_x_orig;
@@ -267,7 +280,7 @@ fn displayI(reg_x: u4, reg_y: u4, rows: u4, dev: *Devices) void {
 }
 
 test "execute displayI instruction" {
-    var dev: Devices = .{};
+    var dev: Devices = Devices.init();
     debug.assert(dev.pc.addr == c8.memory.PROGRAM_START);
     dev.ram[dev.pc.addr] = 0xd0;
     dev.ram[dev.pc.addr + 1] = 0x11;
@@ -564,4 +577,79 @@ test "execute the random instruction" {
         return error.TestExpectedBitsMask;
     }
     debug.print("RNG test3 iterations until passed: {d}\n", .{iter});
+}
+
+fn skipIfKey(reg_x: u4, dev: *Devices) void {
+    const regkey = dev.reg.v[reg_x];
+    if (c8.input.isKeyDown(c8.input.keypad[regkey])) {
+        log.debug("skipIfKey() registered with key: 0x{x}", .{regkey});
+        dev.pc.addr +|= 2;
+    }
+}
+
+fn skipIfNotKey(reg_x: u4, dev: *Devices) void {
+    const regkey = dev.reg.v[reg_x];
+    if (c8.input.isKeyUp(c8.input.keypad[regkey])) {
+        log.debug("skipIfNotKey() registered with key: 0x{x}", .{regkey});
+        dev.pc.addr +|= 2;
+    }
+}
+
+fn getKey(reg_x: u4, dev: *Devices, by_release: bool) void {
+    const key = c8.input.getKeyPressed() catch {
+        dev.pc.addr -|= 2;
+        return;
+    };
+    switch (key) {
+        @intFromEnum(Keypad.zero),
+        @intFromEnum(Keypad.one),
+        @intFromEnum(Keypad.two),
+        @intFromEnum(Keypad.three),
+        @intFromEnum(Keypad.four),
+        @intFromEnum(Keypad.five),
+        @intFromEnum(Keypad.six),
+        @intFromEnum(Keypad.seven),
+        @intFromEnum(Keypad.eight),
+        @intFromEnum(Keypad.nine),
+        @intFromEnum(Keypad.a),
+        @intFromEnum(Keypad.b),
+        @intFromEnum(Keypad.c),
+        @intFromEnum(Keypad.d),
+        @intFromEnum(Keypad.e),
+        @intFromEnum(Keypad.f),
+        => noop(),
+        else => {
+            dev.pc.addr -|= 2;
+            return;
+        },
+    }
+
+    const keytag: Keypad = @enumFromInt(key);
+    if (by_release and c8.input.isKeyReleased(key)) {
+        log.debug("getKey() (release) registered with key: {any}", .{keytag});
+        dev.reg.v[reg_x] = c8.input.keymap.get(keytag) orelse unreachable;
+    } else if (!by_release) {
+        log.debug("getKey() registered with key: {any}", .{keytag});
+        dev.reg.v[reg_x] = c8.input.keymap.get(keytag) orelse unreachable;
+    } else {
+        dev.pc.addr -|= 2;
+    }
+}
+
+fn getDelayTimer(reg_x: u4, dev: *Devices) void {
+    dev.reg.v[reg_x] = dev.delay_timer.timer;
+}
+
+fn setDelayTimer(reg_x: u4, dev: *Devices) void {
+    dev.delay_timer.timer = dev.reg.v[reg_x];
+    dev.delay_timer.last_tick_s = 0; // Not sure if I need to set this
+}
+
+fn setSoundTimer(reg_x: u4, dev: *Devices) void {
+    dev.sound_timer.timer = dev.reg.v[reg_x];
+    dev.sound_timer.last_tick_s = 0; // Not sure if I need to set this
+}
+
+fn setIFontChar(reg_x: u4, dev: *Devices) void {
+    dev.reg.i = c8.font.font_chars[dev.reg.v[reg_x]];
 }

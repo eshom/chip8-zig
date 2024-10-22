@@ -5,21 +5,21 @@ const mem = std.mem;
 const raylib = @import("raylib.zig");
 const rl = raylib.rl;
 const display = @import("display.zig");
+const c8 = @import("chip8.zig");
 
-pub const Cycle = struct {
-    total: u64 = 0,
-    target_fps: f64 = 60,
-    curr_time_s: f64,
-    prev_time_s: f64,
-    delta_time_s: f64,
-    time_since_draw_s: f64 = 0,
-    last_draw_delta_s: f64 = 0,
-};
+const Devices = c8.Devices;
+const Cycle = c8.Clock;
 
 pub const DelayTimer = struct {
     timer: u8 = 0,
     last_tick_s: f64 = 0,
     rate: f64 = 0.01666,
+
+    pub fn tick(self: *DelayTimer, dev: *Devices) void {
+        _ = self; // autofix
+        _ = dev; // autofix
+
+    }
 };
 
 pub const SoundTimer = struct {
@@ -46,7 +46,7 @@ test "timers timing" {
     display.initWindow("timers timing", .{});
     defer display.closeWindow();
 
-    var cycles = Cycle{
+    var cycles = c8.Clock{
         .curr_time_s = getTime(),
         .prev_time_s = undefined,
         .delta_time_s = undefined,

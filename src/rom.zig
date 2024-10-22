@@ -71,7 +71,7 @@ test "read rom" {
 }
 
 test "load and unload rom" {
-    var dev: c8.Devices = .{};
+    var dev: c8.Devices = c8.Devices.init();
     const expected = [_]u8{ 0x00, 0xe0, 0xa2, 0x2a, 0x60, 0x0c };
     var rom_bytes: @TypeOf(expected) = undefined;
     @memcpy(&rom_bytes, &expected);
