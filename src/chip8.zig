@@ -65,6 +65,8 @@ pub const Devices = struct {
         out.clock.prev_time_s = out.clock.curr_time_s;
         out.clock.delta_time_s = out.clock.curr_time_s - out.clock.prev_time_s;
         out.loadFont();
+        timing.initAudioDevice();
+        timing.setMasterVolume(Config.initial_volume);
         return out;
     }
 
@@ -84,9 +86,22 @@ pub const Devices = struct {
         self.clock.time_since_draw_s += self.clock.delta_time_s;
         if (self.delay_timer.timer != 0) {
             self.delay_timer.last_tick_s += self.clock.delta_time_s;
+            if (self.delay_timer.last_tick_s > self.delay_timer.rate) {
+                self.delay_timer.timer -= 1;
+                self.delay_timer.last_tick_s = 0;
+            }
         }
         if (self.sound_timer.timer != 0) {
             self.sound_timer.last_tick_s += self.clock.delta_time_s;
+            if (self.sound_timer.last_tick_s > self.sound_timer.rate) {
+                self.sound_timer.timer -= 1;
+                self.sound_timer.last_tick_s = 0;
+                if (self.sound_timer.timer == 0) {
+                    if (timing.SoundTimer.beep) |bp| {
+                        timing.playSound(bp);
+                    }
+                }
+            }
         }
     }
 };

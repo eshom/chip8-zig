@@ -33,10 +33,10 @@ pub fn mainLoop(dev: *Devices) !void {
         inst.decode(dev);
 
         // Drawing happens here at 60 FPS (by default)
-        log.info("clock: {any}", .{dev.clock});
         if (dev.clock.time_since_draw_s > 1 / dev.clock.target_fps) {
             c8.display.beginDrawing();
             c8.display.clearBackground(Config.bg_color);
+            // TODO: put dev.clock.time_since_draw_s reset in drawScreen call
             c8.display.drawScreen(&dev.screen, Config.scale, c8.raylib.rl.RAYWHITE);
             c8.display.endDrawing();
             c8.display.swapScreenBuffer();

@@ -14,19 +14,16 @@ pub const DelayTimer = struct {
     timer: u8 = 0,
     last_tick_s: f64 = 0,
     rate: f64 = 0.01666,
-
-    pub fn tick(self: *DelayTimer, dev: *Devices) void {
-        _ = self; // autofix
-        _ = dev; // autofix
-
-    }
 };
 
+// TODO: Configurable sound
 pub const SoundTimer = struct {
     timer: u8 = 0,
     last_tick_s: f64 = 0,
     rate: f64 = 0.01666,
     sound: [:0]const u8 = "res/beep.wav",
+
+    pub var beep: ?rl.Sound = null; // should be created in main
 };
 
 pub const waitTime = rl.WaitTime;

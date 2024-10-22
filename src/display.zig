@@ -1,7 +1,8 @@
 const std = @import("std");
 const log = std.log;
 const debug = std.debug;
-const rl = @import("chip8.zig").raylib.rl;
+const c8 = @import("chip8.zig");
+const rl = c8.raylib.rl;
 
 pub const WIDTH = 64;
 pub const HEIGHT = 32;
@@ -59,3 +60,6 @@ pub fn debugDumpScreen(scr: *const Screen) void {
         std.debug.print("\n", .{});
     }
 }
+
+// TODO: This test
+// test "drawing to screen happens" {}

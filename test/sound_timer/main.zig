@@ -25,7 +25,7 @@ pub fn mainLoop(dev: *Devices) !void {
 
     c8.timing.initAudioDevice();
     c8.timing.setMasterVolume(Config.initial_volume);
-    const beep = c8.timing.loadSound(dev.sound_timer.sound);
+    c8.timing.SoundTimer.beep = c8.timing.loadSound(dev.sound_timer.sound);
 
     c8.display.initWindow("CHIP-8", .{ .scale = Config.scale });
     defer c8.display.closeWindow();
@@ -48,19 +48,6 @@ pub fn mainLoop(dev: *Devices) !void {
         debug_curr_time = time.microTimestamp();
     }) {
         c8.input.pollInputEvents();
-
-        if (dev.delay_timer.timer != 0 and dev.delay_timer.last_tick_s > dev.delay_timer.rate) {
-            dev.delay_timer.timer -= 1;
-            dev.delay_timer.last_tick_s = 0;
-        }
-
-        if (dev.sound_timer.timer != 0 and dev.sound_timer.last_tick_s > dev.sound_timer.rate) {
-            dev.sound_timer.timer -= 1;
-            if (dev.sound_timer.timer == 0) {
-                c8.timing.playSound(beep);
-            }
-            dev.sound_timer.last_tick_s = 0;
-        }
 
         if (dev.clock.time_since_draw_s > 1 / dev.clock.target_fps) {
             // Drawing start

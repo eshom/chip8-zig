@@ -112,8 +112,6 @@ pub fn mainLoop(dev: *Devices) !void {
 
         c8.timing.waitTime(Config.cpu_delay_s);
 
-        log.debug("delay timer: {d}", .{dev.delay_timer.timer});
-
         if (totalTime(options.test_time) > options.test_time) {
             if (options.test_number != 0) {
                 break;
