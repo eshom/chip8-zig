@@ -81,6 +81,7 @@ pub const Devices = struct {
         self.clock.delta_time_s = self.clock.curr_time_s - self.clock.prev_time_s;
         self.clock.prev_time_s = self.clock.curr_time_s;
         self.clock.curr_time_s = timing.getTime();
+        self.clock.time_since_draw_s += self.clock.delta_time_s;
         if (self.delay_timer.timer != 0) {
             self.delay_timer.last_tick_s += self.clock.delta_time_s;
         }

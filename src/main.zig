@@ -33,6 +33,7 @@ pub fn mainLoop(dev: *Devices) !void {
         inst.decode(dev);
 
         // Drawing happens here at 60 FPS (by default)
+        log.info("clock: {any}", .{dev.clock});
         if (dev.clock.time_since_draw_s > 1 / dev.clock.target_fps) {
             c8.display.beginDrawing();
             c8.display.clearBackground(Config.bg_color);
